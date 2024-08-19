@@ -37,7 +37,7 @@ class CommentStatusFilter(admin.SimpleListFilter):
 
 class ProductAttributeInLine(admin.TabularInline):
     model  = ProductAttribute
-    fields = ["variable", "price", "quantity", "discounts_active", ]
+    fields = ["variable", "price", "quantity", "discount_active", "discount", ]
     extra  = 1
 
 
@@ -55,7 +55,7 @@ class SubCategoryInLine(admin.TabularInline):
 
 class CommentInLine(admin.TabularInline):
     model  = Comment
-    fields = ['id', 'user', 'body', "status"]
+    fields = ['id', 'user', 'body', "status", ]
     extra  = 1
 
 
@@ -195,7 +195,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display        = ["id", "product", "variable", "price", "quantity", "discounts_active", ]
+    list_display        = ["id", "product", "variable", "price", "quantity", "discount_active", ]
     list_filter         = ['datetime_created', ]
     autocomplete_fields = ["product", ]
 
@@ -236,13 +236,13 @@ class CartItemInLine(admin.TabularInline):
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "is_paid", "datetime_created", "datetime_modified", "session_id"]
+    list_display = ["id", "user", "is_paid", "datetime_created", "datetime_modified", "session_id", ]
     inlines = [CartItemInLine, ]
 
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ['cart', 'product', 'variant', "price", "quantity"]
+    list_display = ['cart', 'product', 'variant', "price", "quantity", ]
 
 
 class OrderItemInLine(admin.TabularInline):

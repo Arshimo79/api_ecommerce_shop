@@ -14,9 +14,6 @@ class Category(models.Model):
 
     def __str__(self):
         return self.title
-    
-    def get_absolute_url(self):
-        return reverse("category_products", args=[self.slug])
 
 
 class SubCategory(models.Model):
@@ -29,9 +26,6 @@ class SubCategory(models.Model):
 
     def __str__(self):
         return f'{self.title}'
-
-    def get_absolute_url(self):
-        return reverse("subcategory_products", args=[self.slug])
 
 
 class Discount(models.Model):
@@ -78,7 +72,8 @@ class Product(models.Model):
         return variables
 
     def default_variable(self):
-        return self.variables().first()
+        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
+        return first_attribute
 
     def default_price(self):
         first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
@@ -86,27 +81,32 @@ class Product(models.Model):
 
     def has_default_off(self):
         first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        return first_attribute.discount is not None if first_attribute else False
+        if first_attribute.discount_active == True:
+            return True
 
-    def default_price_after_off(self):
-        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        discount_amount = first_attribute.discount.discount
-        default_price = first_attribute.price
-
-        return default_price - (default_price * (discount_amount/100))
+        return False
 
     def default_off_count(self):
         first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        return first_attribute.discount.discount
+        if first_attribute.discount_active == True:
+            return first_attribute.discount.discount
+        
+        return None
+
+    def default_price_after_off(self):
+        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
+        if first_attribute.discount_active == True:
+            discount_amount = first_attribute.discount.discount
+            default_price = first_attribute.price
+            return default_price - (default_price * (discount_amount/100))
+            
+        return None
 
     def stock_quantity(self):
         stock_quantity = []
         for item in self.attributes.all():
             stock_quantity.append(item.quantity)
         return sum(stock_quantity)
-
-    def get_absolute_url(self):
-        return reverse("product_detail", args=[self.slug])
 
     class Meta:
         verbose_name_plural='5. Products'
@@ -121,7 +121,7 @@ class ProductAttribute(models.Model):
     price = models.PositiveIntegerField(default=0)
     quantity = models.PositiveIntegerField(default=0)
     discount = models.ForeignKey(Discount, on_delete=models.PROTECT, related_name="products", null=True, blank=True)
-    discounts_active = models.BooleanField(default=False)
+    discount_active = models.BooleanField(default=False)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 
