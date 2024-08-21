@@ -193,9 +193,16 @@ class ProductAdmin(admin.ModelAdmin):
         return super().save_model(request, obj, form, change)
 
 
+class ProductAttributeAdminForm(forms.ModelForm):
+    class Meta:
+        model = ProductAttribute
+        fields = ["product", "variable", "price", "quantity", "discount", "discount_active", ]
+
+
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display        = ["id", "product", "variable", "price", "quantity", "discount_active", ]
+    form                = ProductAttributeAdminForm
+    list_display        = ["id", "title", "product", "variable", "price", "discounted_price", "quantity", "discount_active", ]
     list_filter         = ['datetime_created', ]
     autocomplete_fields = ["product", ]
 
@@ -230,19 +237,19 @@ class WishlistAdmin(admin.ModelAdmin):
 
 class CartItemInLine(admin.TabularInline):
     model  = CartItem
-    fields = ["cart", "product", "variant", "price", "quantity", ]
+    fields = ["cart", "product", "quantity", ]
     extra  = 1
 
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ["id", "user", "is_paid", "datetime_created", "datetime_modified", "session_id", ]
+    list_display = ["id", "is_paid", "datetime_created", "datetime_modified", ]
     inlines = [CartItemInLine, ]
 
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ['cart', 'product', 'variant', "price", "quantity", ]
+    list_display = ['cart', 'product', "quantity", ]
 
 
 class OrderItemInLine(admin.TabularInline):

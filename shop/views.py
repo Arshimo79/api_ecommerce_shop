@@ -1,15 +1,20 @@
 from rest_framework.response import Response
-from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
+from rest_framework.mixins   import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
 
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
-from .models import Product, ProductAttribute, Category, SubCategory
-from .serializers import \
+from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem
+from .serializers import\
     ProductSerializer,\
-    ProductAttributeSerializer, \
-    ProductDetailSerializer, \
-    CategorySerializer, \
-    SubCategorySerializer
+    ProductAttributeSerializer,\
+    ProductDetailSerializer,\
+    CategorySerializer,\
+    SubCategorySerializer,\
+    CartSerializer,\
+    CartItemSerializer,\
+    AddCartItemSerializer,\
+    ChangeCartItemSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -17,7 +22,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
     lookup_field = 'slug'
 
     def get_queryset(self):
-        queryset = Product.objects.prefetch_related("attributes").order_by("-datetime_created").all()
+        queryset = Product.objects.prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all())).order_by("-datetime_created").all()
         category_slug = self.kwargs.get('category__slug')
         subcategory_slug = self.kwargs.get('subcategory__slug')
 
@@ -30,7 +35,8 @@ class ProductViewSet(ReadOnlyModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         try:
-            product = self.get_object()
+            slug = kwargs.get("slug")
+            product = Product.objects.select_related("category", "subcategory").get(slug=slug)
         except Product.DoesNotExist:
             return Response({"error": "Product not found"}, status=404)
 
@@ -38,7 +44,11 @@ class ProductViewSet(ReadOnlyModelViewSet):
 
         variables = product.variables()
         default_variable = product.default_variable()
-        related_products = Product.objects.filter(subcategory=product.subcategory).exclude(slug=product.slug)
+        related_products = Product.objects.filter(subcategory=product.subcategory)\
+            .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
+            .order_by("-datetime_created")\
+            .all()\
+            .exclude(slug=product.slug)
 
         data.update({
             "variables": list(variables),
@@ -83,3 +93,31 @@ class SubCategoryViewSet(ReadOnlyModelViewSet):
             return queryset.filter(category__slug=category_slug)
 
         return queryset
+
+
+class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, GenericViewSet):
+    queryset = Cart.objects.prefetch_related(Prefetch(
+        "items",
+        queryset = CartItem.objects.select_related('product__variable').all(),
+        )).all()
+    serializer_class = CartSerializer
+
+
+class CartItemViewSet(ModelViewSet):
+    http_method_names = ['get', 'post', 'patch', 'delete']
+
+    def get_queryset(self):
+        queryset = CartItem.objects.select_related('product__variable').all()
+        cart_pk = self.kwargs['cart_pk']
+        return queryset.filter(cart_id=cart_pk)
+
+    def get_serializer_context(self):
+        cart_pk = self.kwargs['cart_pk']
+        return {'cart_pk': cart_pk}
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AddCartItemSerializer
+        if self.request.method == "PATCH":
+            return ChangeCartItemSerializer
+        return CartItemSerializer

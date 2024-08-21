@@ -93,13 +93,11 @@ class Product(models.Model):
         
         return None
 
-    def default_price_after_off(self):
+    def default_discounted_price(self):
         first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
         if first_attribute.discount_active == True:
-            discount_amount = first_attribute.discount.discount
-            default_price = first_attribute.price
-            return default_price - (default_price * (discount_amount/100))
-            
+            return first_attribute.discounted_price
+
         return None
 
     def stock_quantity(self):
@@ -116,23 +114,35 @@ class Product(models.Model):
 
 
 class ProductAttribute(models.Model):
+    title = models.CharField(max_length=300)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="attributes")
     variable = models.ForeignKey(Variable, on_delete=models.CASCADE, related_name="products", blank=True)
     price = models.PositiveIntegerField(default=0)
+    discounted_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     quantity = models.PositiveIntegerField(default=0)
     discount = models.ForeignKey(Discount, on_delete=models.PROTECT, related_name="products", null=True, blank=True)
+    discount_amount = models.FloatField(blank=True, null=True)
     discount_active = models.BooleanField(default=False)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 
-    def price_after_off(self):
+    def save(self, *args, **kwargs):
+        self.title = self.product.title
+
+        if self.discount_active:
+            self.discounted_price = self.calculate_discounted_price()
+            self.discount_amount = self.discount.discount
+        else:
+            self.discounted_price = None
+            self.discount_amount = None
+        
+        super().save(*args, **kwargs)
+
+    def calculate_discounted_price(self):
         return self.price - (self.price * (self.discount.discount/100))
 
     class Meta:
         verbose_name_plural='6. ProductAttributes'
-
-    def __str__(self):
-        return self.product.title
 
 
 class Comment(models.Model):
@@ -191,32 +201,18 @@ class Wishlist(models.Model):
 
 class Cart(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, unique=True, default=uuid4)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True, blank=True)
     is_paid = models.BooleanField(default=False)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
-    session_id = models.CharField(max_length=100, null=True, blank=True)
-
-    def get_cart_total_price(self):
-        cart_total_price = []
-
-        for item in self.items.all():
-            cart_total_price.append(item.price * item.quantity)
-        return sum(cart_total_price)
-
-    def __str__(self):
-        return str(self.id)
 
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(ProductAttribute, on_delete=models.SET_NULL, null=True, blank=True)
-    variant = models.CharField(max_length=250, blank=True, null=True)
-    price = models.PositiveIntegerField()
-    quantity = models.PositiveSmallIntegerField(default=1)
+    product = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name="cart_items")
+    quantity = models.PositiveSmallIntegerField()
 
-    def get_item_total_price(self):
-        return self.price * self.quantity
+    class Meta:
+        unique_together = [['cart', 'product']]
 
 
 class Order(models.Model):
