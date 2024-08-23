@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from core.models import CustomUser
 from django.db import transaction
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem
+from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
@@ -270,3 +270,54 @@ class OrderCreateSerializer(serializers.Serializer):
             Cart.objects.get(id=cart_id).delete()
 
             return order
+
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+    class Meta:
+        model = WishlistItem
+        fields = ["id", "product", ]
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    items = WishlistItemSerializer(many=True)
+    class Meta:
+        model = Wishlist
+        fields = ["id", "items", ]
+
+
+class WishlistCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Wishlist
+        fields = ["id", ]
+
+    def create(self, validated_data):
+        user_id = self.context["user_id"]
+
+        try:
+            wish_list = Wishlist.objects.get(user_id=user_id)
+            raise serializers.ValidationError('You already have a wish list.')
+        except Wishlist.DoesNotExist:
+            wish_list = Wishlist.objects.create(user_id=user_id, **validated_data)
+
+        self.instance = wish_list
+        return wish_list
+
+
+class AddWishlistItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WishlistItem
+        fields = ['id', 'product', ]
+
+    def create(self, validated_data):
+        wishlist_id = self.context["wishlist_pk"]
+        product = validated_data.get('product')
+
+        try:
+            wishlist_item = WishlistItem.objects.get(wish_list_id=wishlist_id, product_id=product.id)
+            raise serializers.ValidationError("This Product is in your wish list.")
+        except WishlistItem.DoesNotExist:
+            wishlist_item = WishlistItem.objects.create(wish_list_id=wishlist_id, **validated_data)
+
+        self.instance = wishlist_item
+        return wishlist_item

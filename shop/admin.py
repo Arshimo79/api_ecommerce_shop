@@ -59,6 +59,12 @@ class CommentInLine(admin.TabularInline):
     extra  = 1
 
 
+class WishlistItemInLine(admin.TabularInline):
+    model  = WishlistItem
+    fields = ["id", "product", ]
+    extra  = 1
+
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display  = ['id', 'title', 'num_of_products', ]
@@ -232,7 +238,13 @@ class VariableAdmin(admin.ModelAdmin):
 
 @admin.register(Wishlist)
 class WishlistAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'product', ]
+    list_display = ['id', 'user', ]
+    inlines = [WishlistItemInLine, ]
+
+
+@admin.register(WishlistItem)
+class WishlistItemAdmin(admin.ModelAdmin):
+    list_display = ["id", "wish_list", "product", ]
 
 
 class CartItemInLine(admin.TabularInline):

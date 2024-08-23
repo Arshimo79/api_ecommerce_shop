@@ -192,10 +192,14 @@ class ProductReview(models.Model):
 
 class Wishlist(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="wishlist")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+
+class WishlistItem(models.Model):
+    wish_list = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="wish_items")
 
     class Meta:
-        verbose_name_plural='9. Wishlist'
+        unique_together = [['wish_list', 'product']]
 
 
 class Cart(models.Model):
