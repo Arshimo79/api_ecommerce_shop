@@ -260,7 +260,7 @@ class OrderItemInLine(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ["user", "first_name", "last_name", "email", "phone_number", "address", "order_notes", "is_paid", ]
+    list_display = ["user", "first_name", "last_name", "email", "phone_number", "address", "order_notes", "is_paid", "status", ]
 
     inlines = [
         OrderItemInLine,
@@ -269,4 +269,4 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ["order", "product", "quantity", "variant", "get_item_total_price", ]
+    list_display = ["order", "product", "quantity", "variant", ]

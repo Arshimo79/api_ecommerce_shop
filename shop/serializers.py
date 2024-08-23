@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem
+from core.models import CustomUser
+from django.db import transaction
+from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
@@ -141,3 +143,130 @@ class CartSerializer(serializers.ModelSerializer):
                     if item.product.discount_active\
                     else item.quantity * item.product.price\
                     for item in cart.items.all()])
+
+
+class OrderUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Order
+        fields = ["status", ]
+
+
+class OrderItemProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductAttribute
+        fields = ["id", "title", ]
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    product = OrderItemProductSerializer()
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'quantity', 'price', 'variant', ]
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True)
+    class Meta:
+        model = Order
+        fields = ['id', 
+        'user', 'status', 'first_name', 'last_name', 'email', 'phone_number', 'address', 'order_notes', 'datetime_created', 'items',
+        ]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.order_notes == None:
+            representation.pop('order_notes', None)
+
+        return representation
+
+
+class OrderCreateSerializer(serializers.Serializer):
+    cart_id = serializers.UUIDField()
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    email = serializers.EmailField()
+    phone_number = serializers.CharField(max_length=15)
+    address = serializers.CharField(max_length=800)
+    order_notes = serializers.CharField(max_length=500, required=False)
+
+    def validate_cart_id(self, cart_id):
+        if not Cart.objects.filter(id=cart_id).exists():
+            raise serializers.ValidationError('There is no cart with this id.')
+
+        if CartItem.objects.filter(cart_id=cart_id).count() == 0:
+            raise serializers.ValidationError("Your Cart is empty!")
+
+        return cart_id
+
+    def validate_first_name(self, first_name):
+        if not first_name:
+            raise serializers.ValidationError('Please enter the receiver first_name.')
+
+        return first_name
+
+    def validate_last_name(self, last_name):
+        if not last_name:
+            raise serializers.ValidationError('Please enter the receiver last_name.')
+
+        return last_name
+
+    def validate_email(self, email):
+        if not email:
+            raise serializers.ValidationError('Please fill the email field.')
+
+        return email
+    
+    def validate_phone_number(self, phone_number):
+        if not phone_number:
+            raise serializers.ValidationError('Please fill the phone_number field.')
+
+        return phone_number
+    
+    def validate_address(self, address):
+        if not address:
+            raise serializers.ValidationError('Please fill the address field.')
+
+        return address
+
+    def save(self, **kwargs):
+        with transaction.atomic():
+            cart_id = self.validated_data['cart_id']
+            user_id = self.context['user_id']
+            first_name = self.validated_data['first_name']
+            last_name = self.validated_data['last_name']
+            email = self.validated_data['email']
+            phone_number = self.validated_data['phone_number']
+            address = self.validated_data['address']
+            order_notes = kwargs.get('order_notes')
+
+            order = Order()
+            order.user = user_id
+            order.first_name = first_name
+            order.last_name = last_name
+            order.email = email
+            order.phone_number = phone_number
+            order.address = address
+            order.order_notes = order_notes
+            order.save()
+
+            cart_items = CartItem.objects.select_related("product").filter(cart_id=cart_id)
+
+            order_items = list()
+            for cart_item in cart_items:
+                order_item = OrderItem()
+                order_item.order = order
+                order_item.product = cart_item.product
+                order_item.quantity = cart_item.quantity
+                order_item.variant = cart_item.product.variable.title
+                if cart_item.product.discount_active:
+                    order_item.price = cart_item.product.discounted_price
+                else:
+                    order_item.price = cart_item.product.price
+
+                order_items.append(order_item)
+
+            OrderItem.objects.bulk_create(order_items)
+
+            Cart.objects.get(id=cart_id).delete()
+
+            return order

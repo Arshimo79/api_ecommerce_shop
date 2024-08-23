@@ -1,10 +1,11 @@
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
-from rest_framework.mixins   import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
+from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from django.db.models import Q, Prefetch
 
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem
+from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem
 from .serializers import\
     ProductSerializer,\
     ProductAttributeSerializer,\
@@ -14,7 +15,11 @@ from .serializers import\
     CartSerializer,\
     CartItemSerializer,\
     AddCartItemSerializer,\
-    ChangeCartItemSerializer
+    ChangeCartItemSerializer,\
+    OrderSerializer,\
+    OrderItemSerializer,\
+    OrderCreateSerializer,\
+    OrderUpdateSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -121,3 +126,47 @@ class CartItemViewSet(ModelViewSet):
         if self.request.method == "PATCH":
             return ChangeCartItemSerializer
         return CartItemSerializer
+
+
+class OrderViewSet(ModelViewSet):
+    http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head']
+
+    def get_permissions(self):
+        if self.request.method in ['PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        queryset = Order.objects.select_related("user").prefetch_related(Prefetch(
+        "items",
+        OrderItem.objects.select_related("product__variable").all(),
+        )).all()
+    
+        user = self.request.user
+
+        if user.is_staff:
+            return queryset
+
+        return queryset.filter(user_id=user.id)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return OrderCreateSerializer
+        if self.request.method == "PATCH":
+            return OrderUpdateSerializer
+
+        return OrderSerializer
+    
+    def get_serializer_context(self):
+        return {'user_id': self.request.user.id}
+
+    def create(self, request, *args, **kwargs):
+        create_order_serializer = OrderCreateSerializer(
+            data = request.data,
+            context = {'user_id': self.request.user.id},
+            )
+        create_order_serializer.is_valid(raise_exception=True)
+        created_order = create_order_serializer.save()
+
+        serializer = OrderSerializer(created_order)
+        return Response(serializer.data)
