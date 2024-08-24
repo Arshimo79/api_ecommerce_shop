@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from core.models import CustomUser
 from django.db import transaction
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem
+from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem, Comment
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
@@ -56,10 +56,37 @@ class ProductSerializer(serializers.ModelSerializer):
         return representation
 
 
+class CommentSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.username")
+    class Meta:
+        model = Comment
+        fields = ["id", "user_name", "body", ]
+
+
+class AddCommentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ["id", "body", ]
+
+    def create(self, validated_data):
+        user_id = self.context["user_id"]
+        slug = self.context["slug"]
+
+        try:
+            product = Product.objects.get(slug=slug)
+            comment = Comment.objects.create(user_id=user_id, product=product, **validated_data)
+        except Product.DoesNotExist:
+            raise serializers.ValidationError("This Product doesn't exist.")
+
+        self.instance = comment
+        return comment
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
+    comments = CommentSerializer(many=True)
     class Meta:
         model = Product
-        fields = ['title', 'description', 'in_stock', ]
+        fields = ['title', 'description', 'in_stock', "comments", ]
 
 
 class CategorySerializer(serializers.ModelSerializer):

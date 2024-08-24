@@ -12,6 +12,9 @@ router.register('carts', views.CartViewSet, basename="cart")
 router.register('orders', views.OrderViewSet, basename='order')
 router.register('wishlists', views.WishlistViewSet, basename='wishlist')
 
+product_router = routers.NestedDefaultRouter(router, "products", lookup="product")
+product_router.register("comments", views.CommentViewSet, basename="product-comments")
+
 category_router = routers.NestedDefaultRouter(router, 'categories', lookup="category")
 category_router.register('products', views.ProductViewSet, basename='category-products')
 category_router.register('subcategories', views.SubCategoryViewSet, basename='category-subcategories')
@@ -30,6 +33,7 @@ wishlist_router.register("items", views.WishlistItemViewSet, basename="wishlist-
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('', include(product_router.urls)),
     path('', include(category_router.urls)),
     path('', include(subcategory_router.urls)),
     path('', include(subcategory_products_router.urls)),

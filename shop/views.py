@@ -5,7 +5,8 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from django.db.models import Q, Prefetch
 
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem
+from .permissions import IsAuthenticatedOrReadOnly
+from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem, Comment
 from .serializers import\
     ProductSerializer,\
     ProductAttributeSerializer,\
@@ -22,7 +23,9 @@ from .serializers import\
     WishlistSerializer,\
     WishlistItemSerializer,\
     AddWishlistItemSerializer,\
-    WishlistCreateSerializer
+    WishlistCreateSerializer,\
+    CommentSerializer,\
+    AddCommentSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -44,7 +47,13 @@ class ProductViewSet(ReadOnlyModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         try:
             slug = kwargs.get("slug")
-            product = Product.objects.select_related("category", "subcategory").get(slug=slug)
+            product = Product.objects\
+                .select_related("category", "subcategory")\
+                .prefetch_related(Prefetch(
+                    "comments",
+                    queryset=Comment.objects.select_related("user").all()
+                ))\
+                .get(slug=slug)
         except Product.DoesNotExist:
             return Response({"error": "Product not found"}, status=404)
 
@@ -81,6 +90,28 @@ class ProductViewSet(ReadOnlyModelViewSet):
         data["related_products"] = related_products
 
         return Response(data)
+
+
+class CommentViewSet(ModelViewSet):
+    http_method_names = ["get", "post", "head", "options", "delete"]
+    permission_classes = [IsAuthenticatedOrReadOnly, ]
+
+    def get_queryset(self):
+        queryset = Comment.objects.select_related("user").all()
+        product_slug = self.kwargs["product_slug"]
+        return queryset.filter(product__slug = product_slug)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AddCommentSerializer
+        
+        return CommentSerializer
+    
+    def get_serializer_context(self):
+        user_id = self.request.user.id
+        product_slug = self.kwargs["product_slug"]
+        context = {"slug": product_slug, "user_id": user_id}
+        return context
 
 
 class CategoryViewSet(ReadOnlyModelViewSet):
