@@ -5,8 +5,20 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 
 from django.db.models import Q, Prefetch
 
-from .permissions import IsAuthenticatedOrReadOnly
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem, Comment
+from .permissions import IsAuthenticatedOrReadOnly, IsAuthenticatedOrReadOnlyForReview
+from .models import Product,\
+    ProductAttribute,\
+    Category,\
+    SubCategory,\
+    Cart,\
+    CartItem,\
+    Order,\
+    OrderItem,\
+    Wishlist,\
+    WishlistItem,\
+    Comment,\
+    ProductReview
+
 from .serializers import\
     ProductSerializer,\
     ProductAttributeSerializer,\
@@ -25,7 +37,8 @@ from .serializers import\
     AddWishlistItemSerializer,\
     WishlistCreateSerializer,\
     CommentSerializer,\
-    AddCommentSerializer
+    AddCommentSerializer,\
+    ProductReviewSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -252,3 +265,20 @@ class WishlistItemViewSet(ModelViewSet):
             return AddWishlistItemSerializer
 
         return WishlistItemSerializer
+
+
+class ProductReviewViewSet(ModelViewSet):
+    http_method_names = ["post", "head", "options", "delete"]
+    permission_classes = [IsAuthenticatedOrReadOnlyForReview, ]
+    serializer_class = ProductReviewSerializer
+
+    def get_queryset(self):
+        queryset = ProductReview.objects.all()
+        product_slug = self.kwargs["product_slug"]
+        return queryset.filter(product__slug = product_slug)
+    
+    def get_serializer_context(self):
+        user_id = self.request.user.id
+        product_slug = self.kwargs["product_slug"]
+        context = {"slug": product_slug, "user_id": user_id}
+        return context

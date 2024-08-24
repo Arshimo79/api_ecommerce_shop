@@ -66,6 +66,14 @@ class Product(models.Model):
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 
+    def rates_average(self):
+        rates = self.reviews.all()
+        rates_amount = []
+        for rate in rates:
+            rates_amount.append(float(rate.review_rating))
+
+        return sum(rates_amount) / len(rates)
+
     def variables(self):
         variables = self.attributes.filter(quantity__gt=0).values_list('variable__title', flat=True).distinct()
         return variables

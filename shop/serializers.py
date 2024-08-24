@@ -1,7 +1,18 @@
 from rest_framework import serializers
 from core.models import CustomUser
 from django.db import transaction
-from .models import Product, ProductAttribute, Category, SubCategory, Cart, CartItem, Order, OrderItem, Wishlist, WishlistItem, Comment
+from .models import Product,\
+    ProductAttribute,\
+    Category,\
+    SubCategory,\
+    Cart,\
+    CartItem,\
+    Order,\
+    OrderItem,\
+    Wishlist,\
+    WishlistItem,\
+    Comment,\
+    ProductReview
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
@@ -84,9 +95,16 @@ class AddCommentSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True)
+    rates_average = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['title', 'description', 'in_stock', "comments", ]
+        fields = ['title', "rates_average", 'description', 'in_stock', "comments", ]
+
+    def get_rates_average(self, obj:Product):
+        try:
+            return obj.rates_average()
+        except ZeroDivisionError:
+            return 0
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -348,3 +366,40 @@ class AddWishlistItemSerializer(serializers.ModelSerializer):
 
         self.instance = wishlist_item
         return wishlist_item
+
+
+class ProductReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductReview
+        fields = ["id", "review_rating", ]
+
+    def create(self, validated_data):
+        user_id = self.context["user_id"]
+        slug = self.context["slug"]
+        user = CustomUser.objects.get(id=user_id)
+        orders = Order.objects.filter(user=user).all()
+        titles = []
+        for order in orders:
+            product_titles = OrderItem.objects\
+                .select_related("product")\
+                .filter(order=order)\
+                .values_list('product__title', flat=True).distinct()
+            for title in product_titles:
+                titles.append(title)
+
+        try:
+            product = Product.objects.get(slug=slug)
+        except Product.DoesNotExist:
+            raise serializers.ValidationError("There is no product with this id.")
+
+        if product.title not in list(set(titles)):
+            raise serializers.ValidationError("You must first purchase this product")
+
+        try:
+            review = ProductReview.objects.get(product=product, user_id=user_id)
+            raise serializers.ValidationError("You have already rated this product")
+        except ProductReview.DoesNotExist:
+            review = ProductReview.objects.create(product=product, user_id=user_id, **validated_data)
+
+        self.instance = review
+        return review
