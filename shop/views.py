@@ -1,11 +1,15 @@
-from rest_framework.response import Response
-from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
+from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
 
+from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Prefetch
 
-from .permissions import IsAuthenticatedOrReadOnly, IsAuthenticatedOrReadOnlyForReview
+from .filters import ProductsFilter
+from .paginations import CustomPagination
+from .permissions import IsAuthenticatedOrReadOnly
 from .models import Product,\
     ProductAttribute,\
     Category,\
@@ -18,7 +22,6 @@ from .models import Product,\
     WishlistItem,\
     Comment,\
     ProductReview
-
 from .serializers import\
     ProductSerializer,\
     ProductAttributeSerializer,\
@@ -43,10 +46,16 @@ from .serializers import\
 
 class ProductViewSet(ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
+    pagination_class = CustomPagination
+    filter_backends  = [DjangoFilterBackend, OrderingFilter] 
+    filterset_class  = ProductsFilter
+    ordering_fields  = ['title', 'datetime_created', ]
     lookup_field = 'slug'
 
     def get_queryset(self):
-        queryset = Product.objects.prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all())).order_by("-datetime_created").all()
+        queryset = Product.objects\
+            .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
+            .order_by("-datetime_created").all()
         category_slug = self.kwargs.get('category__slug')
         subcategory_slug = self.kwargs.get('subcategory__slug')
 
@@ -269,7 +278,7 @@ class WishlistItemViewSet(ModelViewSet):
 
 class ProductReviewViewSet(ModelViewSet):
     http_method_names = ["post", "head", "options", "delete"]
-    permission_classes = [IsAuthenticatedOrReadOnlyForReview, ]
+    permission_classes = [IsAuthenticatedOrReadOnly, ]
     serializer_class = ProductReviewSerializer
 
     def get_queryset(self):

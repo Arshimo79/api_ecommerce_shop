@@ -1,6 +1,9 @@
 from rest_framework import serializers
+
 from core.models import CustomUser
+
 from django.db import transaction
+
 from .models import Product,\
     ProductAttribute,\
     Category,\

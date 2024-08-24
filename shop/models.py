@@ -1,4 +1,5 @@
 from django.db import models
+
 from uuid import uuid4
 
 from core.models import CustomUser
@@ -151,6 +152,9 @@ class ProductAttribute(models.Model):
     class Meta:
         verbose_name_plural='6. ProductAttributes'
 
+    def __str__(self) -> str:
+        return self.title
+
 
 class Comment(models.Model):
     COMMENT_STATUS_WAITING      = 'w'
@@ -193,9 +197,6 @@ class ProductReview(models.Model):
 
     class Meta:
         verbose_name_plural='8. Reviews'
-
-    def get_review_rating(self):
-        return self.review_rating
 
 
 class Wishlist(models.Model):
