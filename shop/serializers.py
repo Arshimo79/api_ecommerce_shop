@@ -19,53 +19,52 @@ from .models import Product,\
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
-    discounted_price = serializers.SerializerMethodField()
-    discount = serializers.SerializerMethodField()
+    discounted_price = serializers.SerializerMethodField(read_only=True)
+    discount = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = ProductAttribute
-        fields = ['price', 'discounted_price', 'quantity', 'discount', ]
+        fields = ['price', 'discounted_price', 'discount', 'quantity',  ]
 
     def get_discounted_price(self, obj):
-        if obj.discount_active:
-            return obj.discounted_price
-        return None
+        return obj.discounted_price if obj.discount_active and obj.quantity > 0 else None
 
     def get_discount(self, obj):
-        if obj.discount_active:
-            return obj.discount_amount
-        return None
+        return obj.discount_amount if obj.discount_active and obj.quantity > 0 else None
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        if not instance.discount_active:
-            representation.pop('discount', None)
-            representation.pop('discounted_price', None)
 
-        return representation
+        if instance.quantity == 0:
+            representation['price'] = 'This product is not in stock'
+
+        return {key: val for key, val in representation.items() if val is not None}
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    price = serializers.SerializerMethodField()
-    discount = serializers.SerializerMethodField()
-    discounted_price = serializers.SerializerMethodField()
+    price = serializers.IntegerField(read_only=True)
+    discounted_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    has_discount = serializers.BooleanField(read_only=True)
+    discount_amount = serializers.FloatField(read_only=True)
+    rates_average = serializers.SerializerMethodField()
+    number_of_reviews = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['title', 'description', 'in_stock', 'slug', "price", "discounted_price", "discount", ]
+        fields = ['title', 'description', 'price', 'discounted_price', 'discount_amount', 'in_stock', 'slug',  'rates_average', 'number_of_reviews', 'has_discount', ]
 
-    def get_price(self, obj):
-        return obj.default_price()
+    def get_rates_average(self, obj):
+        return obj.rates_average
 
-    def get_discount(self, obj):
-        return obj.default_off_count()
-
-    def get_discounted_price(self, obj):
-        return obj.default_discounted_price()
+    def get_number_of_reviews(self, obj):
+        return obj.number_of_reviews
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        if instance.has_default_off() == False:
+
+        if instance.has_discount == False:
+            representation.pop('has_discount', None)
+            representation.pop('discount_amount', None)
             representation.pop('discounted_price', None)
-            representation.pop('discount', None)
 
         return representation
 
@@ -99,15 +98,16 @@ class AddCommentSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
     comments = CommentSerializer(many=True)
     rates_average = serializers.SerializerMethodField()
+    number_of_reviews = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['title', "rates_average", 'description', 'in_stock', "comments", ]
+        fields = ['title', 'description', 'in_stock', 'comments', 'rates_average', 'number_of_reviews', ]
 
     def get_rates_average(self, obj:Product):
-        try:
-            return obj.rates_average()
-        except ZeroDivisionError:
-            return 0
+        return obj.rates_average
+
+    def get_number_of_reviews(self, obj):
+        return obj.number_of_reviews
 
 
 class CategorySerializer(serializers.ModelSerializer):

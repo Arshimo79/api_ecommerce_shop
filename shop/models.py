@@ -1,8 +1,12 @@
-from django.db import models
-
-from uuid import uuid4
+from .managers import ProductManager
 
 from core.models import CustomUser
+
+from django.db import models
+
+from rest_framework.exceptions import NotFound
+
+from uuid import uuid4
 
 
 class Category(models.Model):
@@ -67,58 +71,38 @@ class Product(models.Model):
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 
-    def rates_average(self):
-        rates = self.reviews.all()
-        rates_amount = []
-        for rate in rates:
-            rates_amount.append(float(rate.review_rating))
-
-        return sum(rates_amount) / len(rates)
-
     def variables(self):
-        variables = self.attributes.filter(quantity__gt=0).values_list('variable__title', flat=True).distinct()
-        return variables
+        return self.attributes.values_list('variable__title', flat=True).distinct()
 
     def default_variable(self):
-        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        return first_attribute
+        discounted_attrs = self.attributes.filter(
+            discount_active=True,
+            discounted_price__isnull=False,
+            quantity__gt=0
+        ).order_by('discounted_price')
 
-    def default_price(self):
-        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        return first_attribute.price
+        if discounted_attrs.exists():
+            return discounted_attrs.first()
 
-    def has_default_off(self):
-        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        if first_attribute.discount_active == True:
-            return True
+        regular_attrs = self.attributes.filter(
+            quantity__gt=0
+        ).order_by('price')
 
-        return False
+        if regular_attrs.exists():
+            return regular_attrs.first()
 
-    def default_off_count(self):
-        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        if first_attribute.discount_active == True:
-            return first_attribute.discount.discount
-        
-        return None
-
-    def default_discounted_price(self):
-        first_attribute = next((attr for attr in self.attributes.all() if attr.quantity > 0), None)
-        if first_attribute.discount_active == True:
-            return first_attribute.discounted_price
-
-        return None
+        raise NotFound(f"product not found.")
 
     def stock_quantity(self):
-        stock_quantity = []
-        for item in self.attributes.all():
-            stock_quantity.append(item.quantity)
-        return sum(stock_quantity)
+        return self.attributes.aggregate(total_quantity=models.Sum('quantity'))['total_quantity'] or 0
 
     class Meta:
         verbose_name_plural='5. Products'
 
     def __str__(self):
         return self.title
+    
+    objects = ProductManager()
 
 
 class ProductAttribute(models.Model):

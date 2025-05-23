@@ -6,6 +6,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelV
 
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Prefetch
+from django.http import Http404
 
 from .filters import ProductsFilter
 from .paginations import CustomPagination
@@ -49,13 +50,17 @@ class ProductViewSet(ReadOnlyModelViewSet):
     pagination_class = CustomPagination
     filter_backends  = [DjangoFilterBackend, OrderingFilter] 
     filterset_class  = ProductsFilter
-    ordering_fields  = ['title', 'datetime_created', ]
+    ordering_fields  = ['price', 'title', 'datetime_created', ]
     lookup_field = 'slug'
 
     def get_queryset(self):
         queryset = Product.objects\
             .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
-            .order_by("-datetime_created").all()
+            .order_by("-datetime_created")\
+            .filter(in_stock=True)\
+            .custom_query()\
+            .all()\
+
         category_slug = self.kwargs.get('category__slug')
         subcategory_slug = self.kwargs.get('subcategory__slug')
 
@@ -67,51 +72,46 @@ class ProductViewSet(ReadOnlyModelViewSet):
         return queryset
 
     def retrieve(self, request, *args, **kwargs):
-        try:
-            slug = kwargs.get("slug")
-            product = Product.objects\
-                .select_related("category", "subcategory")\
-                .prefetch_related(Prefetch(
-                    "comments",
-                    queryset=Comment.objects.select_related("user").all()
-                ))\
-                .get(slug=slug)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found"}, status=404)
-
+        product = self.get_object_or_404(kwargs.get("slug"))
+        
         data = ProductDetailSerializer(product).data
 
-        variables = product.variables()
-        default_variable = product.default_variable()
-        related_products = Product.objects.filter(subcategory=product.subcategory)\
-            .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
-            .order_by("-datetime_created")\
-            .all()\
-            .exclude(slug=product.slug)
-
-        data.update({
-            "variables": list(variables),
-            "default_variable": variables.first(),
-            "default_product_attr": ProductAttributeSerializer(default_variable).data,
-        })
-
-        get_variable = request.query_params.get('variable')
-        if get_variable:
-            try:
-                selected_product = ProductAttribute.objects.select_related("variable", "product", "discount")\
-                .get(variable__title=get_variable, product=product)
-            except ProductAttribute.DoesNotExist:
-                return Response({"error": "Product not found"}, status=404)
-            
-            data.pop("default_variable", None)
-            data["selected_variable"] = get_variable
-            data.pop("default_product_attr", None)
-            data["product_attr"] = ProductAttributeSerializer(selected_product).data
-
-        related_products = [ProductSerializer(p).data for p in related_products]
-        data["related_products"] = related_products
+        data.update(self.get_variable_data(request, product))
 
         return Response(data)
+
+    def get_object_or_404(self, slug):
+        try:
+            return Product.objects.select_related("category", "subcategory")\
+                .prefetch_related(Prefetch("comments", queryset=Comment.objects.select_related("user")))\
+                .custom_query()\
+                .get(slug=slug)
+        except Product.DoesNotExist:
+            raise Http404("Product not found.")
+
+    def get_variable_data(self, request, product):
+        variables = product.variables()
+        default_variable = product.default_variable()
+        data = {
+            "variables": list(variables),
+            "default_variable": default_variable.variable.title,
+            "default_product_attr": ProductAttributeSerializer(default_variable).data,
+        }
+
+        selected = request.query_params.get("variable")
+        if selected:
+            try:
+                attr = ProductAttribute.objects.select_related("variable", "product", "discount")\
+                        .get(variable__title=selected, product=product)
+                data.update({
+                    "selected_variable": selected,
+                    "product_attr": ProductAttributeSerializer(attr).data,
+                })
+                data.pop("default_variable", None)
+                data.pop("default_product_attr", None)
+            except ProductAttribute.DoesNotExist:
+                raise Http404("Product not found")
+        return data
 
 
 class CommentViewSet(ModelViewSet):
