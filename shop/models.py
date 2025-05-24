@@ -74,7 +74,7 @@ class Product(models.Model):
     def variables(self):
         return self.attributes.values_list('variable__title', flat=True).distinct()
 
-    def default_variable(self):
+    def default_attribute(self):
         discounted_attrs = self.attributes.filter(
             discount_active=True,
             discounted_price__isnull=False,

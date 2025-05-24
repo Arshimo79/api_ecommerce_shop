@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Count
 from django.http import Http404
 
 from .filters import ProductsFilter
@@ -25,7 +25,6 @@ from .models import Product,\
     ProductReview
 from .serializers import\
     ProductSerializer,\
-    ProductAttributeSerializer,\
     ProductDetailSerializer,\
     CategorySerializer,\
     SubCategorySerializer,\
@@ -76,42 +75,17 @@ class ProductViewSet(ReadOnlyModelViewSet):
         
         data = ProductDetailSerializer(product).data
 
-        data.update(self.get_variable_data(request, product))
-
         return Response(data)
 
     def get_object_or_404(self, slug):
         try:
-            return Product.objects.select_related("category", "subcategory")\
-                .prefetch_related(Prefetch("comments", queryset=Comment.objects.select_related("user")))\
+            return Product.objects.select_related("category", "subcategory", )\
+                .prefetch_related(Prefetch("comments", queryset=Comment.objects.select_related("user")), 
+                                  Prefetch("attributes", queryset=ProductAttribute.objects.select_related("variable")))\
                 .custom_query()\
                 .get(slug=slug)
         except Product.DoesNotExist:
             raise Http404("Product not found.")
-
-    def get_variable_data(self, request, product):
-        variables = product.variables()
-        default_variable = product.default_variable()
-        data = {
-            "variables": list(variables),
-            "default_variable": default_variable.variable.title,
-            "default_product_attr": ProductAttributeSerializer(default_variable).data,
-        }
-
-        selected = request.query_params.get("variable")
-        if selected:
-            try:
-                attr = ProductAttribute.objects.select_related("variable", "product", "discount")\
-                        .get(variable__title=selected, product=product)
-                data.update({
-                    "selected_variable": selected,
-                    "product_attr": ProductAttributeSerializer(attr).data,
-                })
-                data.pop("default_variable", None)
-                data.pop("default_product_attr", None)
-            except ProductAttribute.DoesNotExist:
-                raise Http404("Product not found")
-        return data
 
 
 class CommentViewSet(ModelViewSet):
@@ -159,8 +133,9 @@ class SubCategoryViewSet(ReadOnlyModelViewSet):
 class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, GenericViewSet):
     queryset = Cart.objects.prefetch_related(Prefetch(
         "items",
-        queryset = CartItem.objects.select_related('product__variable').all(),
-        )).all()
+        queryset = CartItem.objects.select_related('product__variable').all()))\
+        .annotate(total_items=Count("items"))\
+        .all()
     serializer_class = CartSerializer
 
 

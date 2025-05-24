@@ -3,6 +3,7 @@ from rest_framework import serializers
 from core.models import CustomUser
 
 from django.db import transaction
+from django.db import models
 
 from .models import Product,\
     ProductAttribute,\
@@ -50,7 +51,7 @@ class ProductSerializer(serializers.ModelSerializer):
     number_of_reviews = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['title', 'description', 'price', 'discounted_price', 'discount_amount', 'in_stock', 'slug',  'rates_average', 'number_of_reviews', 'has_discount', ]
+        fields = ['title', 'description', 'price', 'discounted_price', 'discount_amount', 'in_stock', 'slug', 'rates_average', 'number_of_reviews', 'has_discount', ]
 
     def get_rates_average(self, obj):
         return obj.rates_average
@@ -95,19 +96,57 @@ class AddCommentSerializer(serializers.ModelSerializer):
         return comment
 
 
+class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
+    discounted_price = serializers.SerializerMethodField(read_only=True)
+    discount = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = ProductAttribute
+        fields = ['id', 'price', 'discounted_price', 'discount', 'quantity', 'discount_active', ]
+
+    def get_discounted_price(self, obj):
+        return obj.discounted_price if obj.discount_active and obj.quantity > 0 else None
+
+    def get_discount(self, obj):
+        return obj.discount_amount if obj.discount_active and obj.quantity > 0 else None
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        if instance.quantity == 0:
+            representation['price'] = 'This product is not in stock'
+
+        if instance.discount_active == False:
+            representation.pop('discounted_price')
+            representation.pop('discount')
+
+        if instance.variable.varaible_type == 'size':
+            representation['size'] = instance.variable.title
+        else:
+            representation['color'] = instance.variable.title
+
+        return {key: val for key, val in representation.items() if val is not None}
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
+    attributes = ProductAttributeInProductDetailSerializer(many=True)
     comments = CommentSerializer(many=True)
     rates_average = serializers.SerializerMethodField()
     number_of_reviews = serializers.SerializerMethodField()
+    default_attribute = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['title', 'description', 'in_stock', 'comments', 'rates_average', 'number_of_reviews', ]
+        fields = ['id', 'title', 'description', 'in_stock', 'comments', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
 
     def get_rates_average(self, obj:Product):
         return obj.rates_average
 
     def get_number_of_reviews(self, obj):
         return obj.number_of_reviews
+    
+    def get_default_attribute(self, obj):
+        default_attribute = obj.default_attribute()
+        return ProductAttributeInProductDetailSerializer(default_attribute).data
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -124,18 +163,24 @@ class SubCategorySerializer(serializers.ModelSerializer):
 
 class CartProductSerializer(serializers.ModelSerializer):
     final_price = serializers.SerializerMethodField()
-    variable = serializers.SerializerMethodField()
     class Meta:
         model = ProductAttribute
-        fields = ['title', 'variable', 'final_price', ]
+        fields = ['title', 'final_price', ]
 
     def get_final_price(self, obj):
         if obj.discount_active:
             return obj.discounted_price
         return obj.price
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
 
-    def get_variable(self, obj):
-        return obj.variable.title
+        if instance.variable.varaible_type == 'size':
+            representation['size'] = instance.variable.title
+        else:
+            representation['color'] = instance.variable.title
+
+        return {key: val for key, val in representation.items() if val is not None}
 
 
 class ChangeCartItemSerializer(serializers.ModelSerializer):
@@ -144,22 +189,37 @@ class ChangeCartItemSerializer(serializers.ModelSerializer):
         fields = ['quantity']
 
 
-class AddCartItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CartItem
-        fields = ['id', 'product', 'quantity', ]
+class AddCartItemSerializer(serializers.Serializer):
+    product = serializers.PrimaryKeyRelatedField(queryset=ProductAttribute.objects.all())
+    quantity = serializers.IntegerField(min_value=1)
+
+    def validate(self, data):
+        product = data['product']
+        requested_quantity = data['quantity']
+
+        if requested_quantity > product.quantity:
+            raise serializers.ValidationError({
+                'quantity': f"Only {product.quantity} of this product are in stock."
+            })
+
+        return data
 
     def create(self, validated_data):
-        cart_id = self.context["cart_pk"]
-        product = validated_data.get('product')
-        quantity = validated_data.get('quantity')
+        cart_id = self.context['cart_pk']
+        product = validated_data['product']
+        quantity = validated_data['quantity']
 
         try:
             cart_item = CartItem.objects.get(cart_id=cart_id, product_id=product.id)
+            total_quantity = cart_item.quantity + quantity
+            if total_quantity > product.quantity:
+                raise serializers.ValidationError({
+                    'quantity': f"The total quantity of this product is more than the quantity in stock. ({product.quantity - cart_item.quantity}) more can be ordered."
+                })
             cart_item.quantity += quantity
             cart_item.save()
         except CartItem.DoesNotExist:
-            cart_item = CartItem.objects.create(cart_id=cart_id, **validated_data)
+            cart_item = CartItem.objects.create(cart_id=cart_id, product_id=product.id, quantity=quantity)
 
         self.instance = cart_item
         return cart_item
@@ -181,10 +241,24 @@ class CartItemSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
     total_price = serializers.SerializerMethodField()
+    total_discount = serializers.SerializerMethodField()
+    total_items = serializers.SerializerMethodField()
     class Meta:
         model = Cart
-        fields = ['id', "items", "total_price"]
+        fields = ['id', "items", "total_price", "total_discount", "total_items"]
         read_only_fields = ["id", ]
+
+    def get_total_items(self, obj):
+        return obj.total_items
+
+    def get_total_discount(self, obj):
+        cart_total_dicount = []
+
+        for item in obj.items.all():
+            if item.product.discount_active:
+                cart_total_dicount.append((item.product.price - item.product.discounted_price) * item.quantity)
+
+        return sum(cart_total_dicount)
 
     def get_total_price(self, cart: Cart):
         return sum([item.quantity * item.product.discounted_price\
