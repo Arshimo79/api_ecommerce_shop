@@ -89,25 +89,23 @@ class ProductViewSet(ReadOnlyModelViewSet):
 
 
 class CommentViewSet(ModelViewSet):
-    http_method_names = ["get", "post", "head", "options", "delete"]
+    http_method_names = ["get", "post", "head", "options", ]
     permission_classes = [IsAuthenticatedOrReadOnly, ]
 
     def get_queryset(self):
         queryset = Comment.objects.select_related("user").all()
         product_slug = self.kwargs["product_slug"]
-        return queryset.filter(product__slug = product_slug)
+        return queryset.filter(product__slug = product_slug, status=Comment.COMMENT_STATUS_APPROVED)
+
+    def get_serializer_context(self):
+        product_slug = self.kwargs["product_slug"]
+        return {"slug": product_slug, "request": self.request}
 
     def get_serializer_class(self):
         if self.request.method == "POST":
             return AddCommentSerializer
         
         return CommentSerializer
-    
-    def get_serializer_context(self):
-        user_id = self.request.user.id
-        product_slug = self.kwargs["product_slug"]
-        context = {"slug": product_slug, "user_id": user_id}
-        return context
 
 
 class CategoryViewSet(ReadOnlyModelViewSet):

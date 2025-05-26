@@ -3,7 +3,6 @@ from rest_framework import serializers
 from core.models import CustomUser
 
 from django.db import transaction
-from django.db import models
 
 from .models import Product,\
     ProductAttribute,\
@@ -83,17 +82,18 @@ class AddCommentSerializer(serializers.ModelSerializer):
         fields = ["id", "body", ]
 
     def create(self, validated_data):
-        user_id = self.context["user_id"]
-        slug = self.context["slug"]
+        request = self.context.get("request")
+        slug = self.context.get("slug")
+        user = request.user
 
         try:
             product = Product.objects.get(slug=slug)
-            comment = Comment.objects.create(user_id=user_id, product=product, **validated_data)
         except Product.DoesNotExist:
-            raise serializers.ValidationError("This Product doesn't exist.")
+            raise serializers.ValidationError({
+                'product': "Product not found."
+            })
 
-        self.instance = comment
-        return comment
+        return Comment.objects.create(user=user, product=product, **validated_data)
 
 
 class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
@@ -130,13 +130,12 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     attributes = ProductAttributeInProductDetailSerializer(many=True)
-    comments = CommentSerializer(many=True)
     rates_average = serializers.SerializerMethodField()
     number_of_reviews = serializers.SerializerMethodField()
     default_attribute = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['id', 'title', 'description', 'in_stock', 'comments', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
+        fields = ['id', 'title', 'description', 'in_stock', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
 
     def get_rates_average(self, obj:Product):
         return obj.rates_average
