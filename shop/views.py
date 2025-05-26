@@ -5,12 +5,12 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
 
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Q, Prefetch, Count
+from django.db.models import Q, Prefetch
 from django.http import Http404
 
 from .filters import ProductsFilter
 from .paginations import CustomPagination
-from .permissions import IsAuthenticatedOrReadOnly
+from .permissions import IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly
 from .models import Product,\
     ProductAttribute,\
     Category,\
@@ -41,7 +41,8 @@ from .serializers import\
     WishlistCreateSerializer,\
     CommentSerializer,\
     AddCommentSerializer,\
-    ProductReviewSerializer
+    ProductReviewSerializer,\
+    AddProductReviewSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -132,7 +133,6 @@ class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, Gener
     queryset = Cart.objects.prefetch_related(Prefetch(
         "items",
         queryset = CartItem.objects.select_related('product__variable').all()))\
-        .annotate(total_items=Count("items"))\
         .all()
     serializer_class = CartSerializer
 
@@ -250,17 +250,22 @@ class WishlistItemViewSet(ModelViewSet):
 
 
 class ProductReviewViewSet(ModelViewSet):
-    http_method_names = ["post", "head", "options", "delete"]
-    permission_classes = [IsAuthenticatedOrReadOnly, ]
+    http_method_names = ["get", "post", "head", "options", "delete"]
     serializer_class = ProductReviewSerializer
+    permission_classes = [IsOwnerOrReadOnly, ]
 
     def get_queryset(self):
-        queryset = ProductReview.objects.all()
         product_slug = self.kwargs["product_slug"]
-        return queryset.filter(product__slug = product_slug)
+        return ProductReview.objects.select_related("user").filter(product__slug = product_slug)
     
     def get_serializer_context(self):
-        user_id = self.request.user.id
+        user_id = self.request.user.id if self.request.user.is_authenticated else None
         product_slug = self.kwargs["product_slug"]
         context = {"slug": product_slug, "user_id": user_id}
         return context
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AddProductReviewSerializer
+
+        return ProductReviewSerializer

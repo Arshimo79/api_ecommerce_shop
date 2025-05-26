@@ -50,7 +50,9 @@ class ProductSerializer(serializers.ModelSerializer):
     number_of_reviews = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['title', 'description', 'price', 'discounted_price', 'discount_amount', 'in_stock', 'slug', 'rates_average', 'number_of_reviews', 'has_discount', ]
+        fields = ['id', 
+                  'title', 'description', 'price', 'discounted_price', 'discount_amount', 'in_stock', 'slug', 'rates_average', 'number_of_reviews', 'has_discount', 
+                 ]
 
     def get_rates_average(self, obj):
         return obj.rates_average
@@ -248,7 +250,11 @@ class CartSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", ]
 
     def get_total_items(self, obj):
-        return obj.total_items
+        count = 0
+        for i in obj.items.all():
+            count += 1
+
+        return count
 
     def get_total_discount(self, obj):
         cart_total_dicount = []
@@ -445,6 +451,14 @@ class AddWishlistItemSerializer(serializers.ModelSerializer):
 
 
 class ProductReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.username")
+    
+    class Meta:
+        model = ProductReview
+        fields = ["id", "user_name", "review_rating", ]
+
+
+class AddProductReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductReview
         fields = ["id", "review_rating", ]
