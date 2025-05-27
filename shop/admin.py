@@ -5,6 +5,8 @@ from django.urls       import reverse
 from django.utils.html import format_html
 from django.utils.http import urlencode
 
+from datetime import timedelta
+
 from dal import autocomplete
 
 from typing import Any
@@ -245,6 +247,45 @@ class WishlistAdmin(admin.ModelAdmin):
 @admin.register(WishlistItem)
 class WishlistItemAdmin(admin.ModelAdmin):
     list_display = ["id", "wish_list", "product", ]
+
+
+class ShippingMethodForm(forms.ModelForm):
+    delivery_time_hours = forms.IntegerField(label="Delivery Time (Hours)", min_value=0)
+
+    class Meta:
+        model = ShippingMethod
+        fields = ["shipping_method", "price", "delivery_time_hours", "shipping_method_active", ]
+
+
+@admin.register(ShippingMethod)
+class ShippingMethodAdmin(admin.ModelAdmin):
+    list_display = ["shipping_method", "price", "delivery_time", "shipping_method_active", "datetime_created", "datetime_modified", ]
+    form = ShippingMethodForm
+
+    def save_model(self, request, obj, form, change):
+        hours = form.cleaned_data['delivery_time_hours']
+        obj.delivery_time = timedelta(hours=hours)
+        super().save_model(request, obj, form, change)
+
+
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ["user", 
+                    "receiver_name", 
+                    "receiver_family", 
+                    "receiver_phone_number", 
+                    "receiver_city", 
+                    "receiver_address", 
+                    "receiver_postal_code", 
+                    "receiver_latitude", 
+                    "receiver_longitude", 
+                    "datetime_created", 
+                    "datetime_modified", ]
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+
+        return queryset.select_related("user")
 
 
 class CartItemInLine(admin.TabularInline):

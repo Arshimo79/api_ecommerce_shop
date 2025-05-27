@@ -2,6 +2,7 @@ from .managers import ProductManager
 
 from core.models import CustomUser
 
+from django.conf import settings
 from django.db import models
 
 from rest_framework.exceptions import NotFound
@@ -209,6 +210,45 @@ class CartItem(models.Model):
 
     class Meta:
         unique_together = [['cart', 'product']]
+
+
+class ShippingMethod(models.Model):
+    shipping_method = models.CharField(max_length=50)
+    price = models.PositiveIntegerField(default=None, blank=True, null=True)
+    delivery_time = models.DurationField()
+    shipping_method_active = models.BooleanField(default=True)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return self.shipping_method
+
+
+class Address(models.Model):
+    TEHRAN = 'Tehran'
+    KARAJ = 'Karaj'
+    CITIES = [
+        (TEHRAN, 'Tehran'),
+        (KARAJ, 'Karaj'),
+    ]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="addresses")
+    receiver_name = models.CharField(max_length=100)
+    receiver_family = models.CharField(max_length=150)
+    receiver_phone_number = models.CharField(max_length=13)
+    receiver_city = models.CharField(max_length=85, choices=CITIES)
+    receiver_address = models.TextField()
+    receiver_postal_code = models.CharField(max_length=20)
+    receiver_latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    receiver_longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural='9. Addresses'
+
+    def __str__(self) -> str:
+        return f"address: {self.receiver_address}."
 
 
 class Order(models.Model):
