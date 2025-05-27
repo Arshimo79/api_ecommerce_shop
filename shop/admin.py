@@ -270,7 +270,8 @@ class ShippingMethodAdmin(admin.ModelAdmin):
 
 @admin.register(Address)
 class AddressAdmin(admin.ModelAdmin):
-    list_display = ["user", 
+    list_display = ["id",
+                    "user", 
                     "receiver_name", 
                     "receiver_family", 
                     "receiver_phone_number", 

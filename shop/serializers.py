@@ -15,7 +15,8 @@ from .models import Product,\
     Wishlist,\
     WishlistItem,\
     Comment,\
-    ProductReview
+    ProductReview,\
+    Address
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
@@ -270,6 +271,26 @@ class CartSerializer(serializers.ModelSerializer):
                     if item.product.discount_active\
                     else item.quantity * item.product.price\
                     for item in cart.items.all()])
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = ['id', 
+                  'receiver_name', 
+                  'receiver_family', 
+                  'receiver_phone_number', 
+                  'receiver_city', 
+                  'receiver_address', 
+                  'receiver_postal_code', 
+                  'receiver_latitude', 
+                  'receiver_longitude', ]
+        read_only_fields = ["id", ]
+
+    def create(self, validated_data):
+        user_id = self.context['user_id']
+
+        return Address.objects.create(user_id=user_id, **validated_data)
 
 
 class OrderUpdateSerializer(serializers.ModelSerializer):

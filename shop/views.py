@@ -22,7 +22,8 @@ from .models import Product,\
     Wishlist,\
     WishlistItem,\
     Comment,\
-    ProductReview
+    ProductReview,\
+    Address
 from .serializers import\
     ProductSerializer,\
     ProductDetailSerializer,\
@@ -42,7 +43,8 @@ from .serializers import\
     CommentSerializer,\
     AddCommentSerializer,\
     ProductReviewSerializer,\
-    AddProductReviewSerializer
+    AddProductReviewSerializer,\
+    AddressSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -127,6 +129,21 @@ class SubCategoryViewSet(ReadOnlyModelViewSet):
             return queryset.filter(category__slug=category_slug)
 
         return queryset
+
+
+class AddressViewSet(ModelViewSet):
+    http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head']
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = AddressSerializer
+
+    def get_queryset(self):
+        queryset = Address.objects.all()
+        user_id = self.request.user.id
+        return queryset.filter(user_id=user_id)
+
+    def get_serializer_context(self):
+        user_id = self.request.user.id
+        return {'user_id': user_id}
 
 
 class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, GenericViewSet):

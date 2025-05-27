@@ -11,6 +11,7 @@ router.register('subcategories', views.SubCategoryViewSet, basename='subcategory
 router.register('carts', views.CartViewSet, basename="cart")
 router.register('orders', views.OrderViewSet, basename='order')
 router.register('wishlists', views.WishlistViewSet, basename='wishlist')
+router.register('addresses', views.AddressViewSet, basename='address')
 
 product_router = routers.NestedDefaultRouter(router, "products", lookup="product")
 product_router.register("comments", views.CommentViewSet, basename="product-comments")
