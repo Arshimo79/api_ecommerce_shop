@@ -308,14 +308,26 @@ class CartItemAdmin(admin.ModelAdmin):
 
 class OrderItemInLine(admin.TabularInline):
     model  = OrderItem
-    fields = ["order", "product", "variant", "price", "quantity", ] 
+    fields = ["id", "product", "price", "quantity", ] 
     extra  = 0
 
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ["user", "first_name", "last_name", "email", "phone_number", "address", "order_notes", "is_paid", "status", ]
-
+    list_display = ["user", 
+                    "receiver_name", 
+                    "receiver_family", 
+                    "receiver_phone_number", 
+                    "receiver_city", 
+                    "receiver_address", 
+                    "receiver_postal_code", 
+                    "status", 
+                    "shipping_method", 
+                    "total_price", 
+                    "total_discount_amount",
+                    "datetime_modified",
+                    "datetime_created",
+                    ]
     inlines = [
         OrderItemInLine,
     ]
@@ -323,4 +335,4 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ["order", "product", "quantity", "variant", ]
+    list_display = ["order", "product", "price", "quantity", ]

@@ -252,34 +252,40 @@ class Address(models.Model):
 
 
 class Order(models.Model):
-    ORDER_STATUS_PAID = 'p'
-    ORDER_STATUS_UNPAID = 'u'
     ORDER_STATUS_CANCELED = 'c'
+    ORDER_STATUS_NOT_DELIVERED = 'nd'
+    ORDER_STATUS_DELIVERED = 'd'
 
     ORDER_STATUS = [
-        (ORDER_STATUS_PAID, 'Paid'),
-        (ORDER_STATUS_UNPAID, 'Unpaid'),
         (ORDER_STATUS_CANCELED, 'Canceled'),
+        (ORDER_STATUS_NOT_DELIVERED, 'Not Deliver'),
+        (ORDER_STATUS_DELIVERED, 'Deliver'),
     ]
 
     user = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name="orders")
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField()
-    phone_number = models.CharField(max_length=15)
-    address = models.CharField(max_length=800)
-    order_notes = models.CharField(max_length=500, blank=True, null=True)
-    is_paid = models.BooleanField(default=False)
-    status = models.CharField(choices=ORDER_STATUS, max_length=2, default=ORDER_STATUS_UNPAID)
+    receiver_name = models.CharField(max_length=100)
+    receiver_family = models.CharField(max_length=150)
+    receiver_phone_number = models.CharField(max_length=13)
+    receiver_city = models.CharField(max_length=85)
+    receiver_address = models.TextField()
+    receiver_postal_code = models.CharField(max_length=20)
+    status = models.CharField(choices=ORDER_STATUS, max_length=2, default=ORDER_STATUS_NOT_DELIVERED)
+    shipping_method = models.ForeignKey(ShippingMethod, on_delete=models.PROTECT, related_name="orders")
+    total_price = models.DecimalField(max_digits=15, decimal_places=4)
+    total_discount_amount = models.DecimalField(max_digits=15, decimal_places=4, blank=True, null=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural='Orders'
 
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="items")
     product = models.ForeignKey(ProductAttribute, on_delete=models.PROTECT, related_name='order_items')
+    price = models.DecimalField(max_digits=15, decimal_places=4)
     quantity = models.PositiveSmallIntegerField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    variant = models.CharField(max_length=250, blank=True, null=True)
 
     class Meta:
         unique_together = [['order', 'product']]
+        verbose_name_plural='OrderItems'

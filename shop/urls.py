@@ -30,6 +30,9 @@ subcategory_router.register('products', views.ProductViewSet, basename='subcateg
 cart_router = routers.NestedDefaultRouter(router, 'carts', lookup="cart")
 cart_router.register('items', views.CartItemViewSet, basename='cart-items')
 
+order_router = routers.NestedDefaultRouter(router, 'orders', lookup="order")
+order_router.register('items', views.OrderItemViewSet, basename='order-items')
+
 wishlist_router = routers.NestedDefaultRouter(router, 'wishlists', lookup="wishlist")
 wishlist_router.register("items", views.WishlistItemViewSet, basename="wishlist-items")
 
@@ -41,4 +44,5 @@ urlpatterns = [
     path('', include(subcategory_products_router.urls)),
     path('', include(cart_router.urls)),
     path('', include(wishlist_router.urls)),
+    path('', include(order_router.urls))
 ]

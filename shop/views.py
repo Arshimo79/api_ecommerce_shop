@@ -17,13 +17,13 @@ from .models import Product,\
     SubCategory,\
     Cart,\
     CartItem,\
-    Order,\
-    OrderItem,\
     Wishlist,\
     WishlistItem,\
     Comment,\
     ProductReview,\
-    Address
+    Address,\
+    Order,\
+    OrderItem
 from .serializers import\
     ProductSerializer,\
     ProductDetailSerializer,\
@@ -33,9 +33,6 @@ from .serializers import\
     CartItemSerializer,\
     AddCartItemSerializer,\
     ChangeCartItemSerializer,\
-    OrderSerializer,\
-    OrderCreateSerializer,\
-    OrderUpdateSerializer,\
     WishlistSerializer,\
     WishlistItemSerializer,\
     AddWishlistItemSerializer,\
@@ -44,7 +41,9 @@ from .serializers import\
     AddCommentSerializer,\
     ProductReviewSerializer,\
     AddProductReviewSerializer,\
-    AddressSerializer
+    AddressSerializer,\
+    OrderSerializer,\
+    OrderItemSerializer
 
 
 class ProductViewSet(ReadOnlyModelViewSet):
@@ -175,47 +174,25 @@ class CartItemViewSet(ModelViewSet):
 
 
 class OrderViewSet(ModelViewSet):
-    http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head']
-
-    def get_permissions(self):
-        if self.request.method in ['PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [IsAuthenticated()]
+    http_method_names = ['get', 'options', 'head']
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = OrderSerializer
 
     def get_queryset(self):
-        queryset = Order.objects.select_related("user").prefetch_related(Prefetch(
-        "items",
-        OrderItem.objects.select_related("product__variable").all(),
-        )).all()
-    
-        user = self.request.user
+        queryset = Order.objects.prefetch_related(Prefetch("items", OrderItem.objects.select_related("product__variable").all())).all()
+        user_id = self.request.user.id
+        return queryset.filter(user_id=user_id)
 
-        if user.is_staff:
-            return queryset
 
-        return queryset.filter(user_id=user.id)
+class OrderItemViewSet(ModelViewSet):
+    http_method_names = ['get', 'options', 'head']
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = OrderItemSerializer
 
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return OrderCreateSerializer
-        if self.request.method == "PATCH":
-            return OrderUpdateSerializer
-
-        return OrderSerializer
-    
-    def get_serializer_context(self):
-        return {'user_id': self.request.user.id}
-
-    def create(self, request, *args, **kwargs):
-        create_order_serializer = OrderCreateSerializer(
-            data = request.data,
-            context = {'user_id': self.request.user.id},
-            )
-        create_order_serializer.is_valid(raise_exception=True)
-        created_order = create_order_serializer.save()
-
-        serializer = OrderSerializer(created_order)
-        return Response(serializer.data)
+    def get_queryset(self):
+        order_pk = self.kwargs["order_pk"]
+        user_id = self.request.user.id
+        return OrderItem.objects.select_related("product__variable").filter(order_id=order_pk, order__user_id=user_id).all()
 
 
 class WishlistViewSet(ModelViewSet):
