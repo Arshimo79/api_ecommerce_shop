@@ -297,7 +297,7 @@ class CartItemInLine(admin.TabularInline):
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ["id", "is_paid", "datetime_created", "datetime_modified", ]
+    list_display = ["id", "datetime_created", "datetime_modified", ]
     inlines = [CartItemInLine, ]
 
 

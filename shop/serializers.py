@@ -2,8 +2,6 @@ from rest_framework import serializers
 
 from core.models import CustomUser
 
-from django.db import transaction
-
 from .models import Product,\
     ProductAttribute,\
     Category,\
@@ -186,9 +184,26 @@ class CartProductSerializer(serializers.ModelSerializer):
 
 
 class ChangeCartItemSerializer(serializers.ModelSerializer):
+    quantity = serializers.IntegerField()
     class Meta:
         model = CartItem
         fields = ['quantity']
+
+    def validate_quantity(self, value):
+        cart_item = self.instance
+        
+        try:
+            product = cart_item.product
+        except ProductAttribute.DoesNotExist:
+            raise serializers.ValidationError("Product not found")
+        
+        if value > product.quantity:
+            raise serializers.ValidationError(f"The maximum stock of this product is {product.quantity} pieces.")
+        
+        if value < 1:
+            raise serializers.ValidationError("The minimum value must be 1")
+        
+        return value
 
 
 class AddCartItemSerializer(serializers.Serializer):
@@ -320,16 +335,17 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     class Meta:
         model = Order
-        fields = ['id', 
-                  'receiver_name', 
-                  'receiver_family', 
-                  'receiver_phone_number', 
-                  'receiver_city', 
-                  'receiver_address', 
-                  'receiver_postal_code', 
-                  'status', 
-                  'shipping_method', 
-                  'total_price', 
+        fields = ['id',
+                  'receiver_name',
+                  'receiver_family',
+                  'receiver_phone_number',
+                  'receiver_city',
+                  'receiver_address',
+                  'receiver_postal_code',
+                  'status',
+                  'is_paid',
+                  'shipping_method',
+                  'total_price',
                   'total_discount_amount',
                   'items'
                   ]

@@ -198,7 +198,6 @@ class WishlistItem(models.Model):
 
 class Cart(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, unique=True, default=uuid4)
-    is_paid = models.BooleanField(default=False)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 
@@ -270,6 +269,7 @@ class Order(models.Model):
     receiver_address = models.TextField()
     receiver_postal_code = models.CharField(max_length=20)
     status = models.CharField(choices=ORDER_STATUS, max_length=2, default=ORDER_STATUS_NOT_DELIVERED)
+    is_paid = models.BooleanField(default=False)
     shipping_method = models.ForeignKey(ShippingMethod, on_delete=models.PROTECT, related_name="orders")
     total_price = models.DecimalField(max_digits=15, decimal_places=4)
     total_discount_amount = models.DecimalField(max_digits=15, decimal_places=4, blank=True, null=True)
@@ -283,8 +283,14 @@ class Order(models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="items")
     product = models.ForeignKey(ProductAttribute, on_delete=models.PROTECT, related_name='order_items')
-    price = models.DecimalField(max_digits=15, decimal_places=4)
+    price = models.DecimalField(max_digits=15, decimal_places=2)
     quantity = models.PositiveSmallIntegerField()
+
+    def __str__(self):
+        return f"OrderItem {self.id}: {self.product}({self.variable}) X {self.quantity}."
+
+    def get_item_total_price(self):
+        return self.price * self.quantity
 
     class Meta:
         unique_together = [['order', 'product']]
