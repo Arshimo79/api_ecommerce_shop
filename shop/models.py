@@ -1,3 +1,4 @@
+import uuid
 from .managers import ProductManager
 
 from core.models import CustomUser
@@ -213,7 +214,7 @@ class CartItem(models.Model):
 
 class ShippingMethod(models.Model):
     shipping_method = models.CharField(max_length=50)
-    price = models.PositiveIntegerField(default=None, blank=True, null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     delivery_time = models.DurationField()
     shipping_method_active = models.BooleanField(default=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
@@ -257,8 +258,8 @@ class Order(models.Model):
 
     ORDER_STATUS = [
         (ORDER_STATUS_CANCELED, 'Canceled'),
-        (ORDER_STATUS_NOT_DELIVERED, 'Not Deliver'),
-        (ORDER_STATUS_DELIVERED, 'Deliver'),
+        (ORDER_STATUS_NOT_DELIVERED, 'Not Delivered'),
+        (ORDER_STATUS_DELIVERED, 'Delivered'),
     ]
 
     user = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name="orders")
@@ -270,11 +271,68 @@ class Order(models.Model):
     receiver_postal_code = models.CharField(max_length=20)
     status = models.CharField(choices=ORDER_STATUS, max_length=2, default=ORDER_STATUS_NOT_DELIVERED)
     is_paid = models.BooleanField(default=False)
+    number = models.CharField(max_length=50, unique=True, editable=False)
+    tracking_code = models.CharField(max_length=15, unique=True, blank=True, null=True)
     shipping_method = models.ForeignKey(ShippingMethod, on_delete=models.PROTECT, related_name="orders")
-    total_price = models.DecimalField(max_digits=15, decimal_places=4)
-    total_discount_amount = models.DecimalField(max_digits=15, decimal_places=4, blank=True, null=True)
+    shipping_price = models.DecimalField(max_digits=15, decimal_places=2, default=None, blank=True, null=True)
+    total_price = models.DecimalField(max_digits=15, decimal_places=2)
+    total_discount_amount = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True)
     datetime_modified = models.DateTimeField(auto_now=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.number:
+            super().save(*args, **kwargs)
+            self.number = self.generate_unique_order_number()
+            return super().save(update_fields=['number'])
+        return super().save(*args, **kwargs)
+
+    def generate_unique_order_number(self):
+        number = 12345 + self.id
+        return str(number)
+    
+    def generate_unique_tracking_code(self):
+        while True:
+            code = uuid.uuid4().hex[:15].upper()    
+            if not Order.objects.filter(tracking_code=code).exists():
+                return code
+
+    def get_products_total_price(self):
+        order_products_total_price = []
+
+        for item in self.items.all():
+            if item.discount_active:
+                order_products_total_price.append(item.calculate_discounted_price() * item.quantity)
+            else:
+                order_products_total_price.append(item.price * item.quantity)
+        
+        return sum(order_products_total_price)
+
+    def get_order_total_price(self):
+        order_total_price = []
+
+        for item in self.items.all():
+            if item.discount_active:
+                order_total_price.append(item.calculate_discounted_price() * item.quantity)
+            else:
+                order_total_price.append(item.price * item.quantity)
+        
+        if self.shipping_price == None:
+            return sum(order_total_price)
+        else:
+            return sum(order_total_price) + self.shipping_method.price
+
+    def get_order_total_discount(self):
+        order_total_dicount = []
+
+        for item in self.items.all():
+            if item.discount_active:
+                order_total_dicount.append((item.price - item.calculate_discounted_price()) * item.quantity)
+
+        return sum(order_total_dicount)
+
+    def __str__(self):
+        return f"Order {self.id}"
 
     class Meta:
         verbose_name_plural='Orders'
@@ -284,13 +342,31 @@ class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="items")
     product = models.ForeignKey(ProductAttribute, on_delete=models.PROTECT, related_name='order_items')
     price = models.DecimalField(max_digits=15, decimal_places=2)
+    variable = models.CharField(max_length=250, blank=True, null=True)
     quantity = models.PositiveSmallIntegerField()
+    discount = models.DecimalField(max_digits=10, decimal_places=2)
+    discounted_price = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True)
+    discount_active = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        self.title = self.product.title
+        super().save(*args, **kwargs)
+
+        if self.discount_active and self.discount:
+            self.discounted_price = self.calculate_discounted_price()
+        else:
+            self.discounted_price = None
+
+    def get_item_total_price(self):
+        if self.discount_active:
+            return self.discounted_price * self.quantity
+        return self.price * self.quantity
+
+    def calculate_discounted_price(self):
+        return int(self.price - (self.price * (self.discount/100)))
 
     def __str__(self):
         return f"OrderItem {self.id}: {self.product}({self.variable}) X {self.quantity}."
-
-    def get_item_total_price(self):
-        return self.price * self.quantity
 
     class Meta:
         unique_together = [['order', 'product']]

@@ -308,7 +308,7 @@ class CartItemAdmin(admin.ModelAdmin):
 
 class OrderItemInLine(admin.TabularInline):
     model  = OrderItem
-    fields = ["id", "product", "price", "quantity", ] 
+    fields = ["order", "product", "variable", "price", "quantity", "discount" ] 
     extra  = 0
 
 
@@ -321,9 +321,13 @@ class OrderAdmin(admin.ModelAdmin):
                     "receiver_city", 
                     "receiver_address", 
                     "receiver_postal_code", 
-                    "status", 
-                    "shipping_method", 
-                    "total_price", 
+                    "status",
+                    "is_paid",
+                    "number",
+                    "tracking_code",
+                    "shipping_method",
+                    "shipping_price",
+                    "total_price",
                     "total_discount_amount",
                     "datetime_modified",
                     "datetime_created",
@@ -335,4 +339,4 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ["order", "product", "price", "quantity", ]
+    list_display = ["order", "product", "quantity", "variable", "get_item_total_price", ]
