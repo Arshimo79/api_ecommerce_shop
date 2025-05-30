@@ -1,17 +1,17 @@
-from django            import forms
-from django.contrib    import admin
-from django.db.models  import Count
-from django.urls       import reverse
-from django.utils.html import format_html
-from django.utils.http import urlencode
-
-from datetime import timedelta
+from .models import *
 
 from dal import autocomplete
 
-from typing import Any
+from datetime import timedelta
 
-from .models import *
+from django import forms
+from django.contrib import admin
+from django.db.models import Count, Prefetch
+from django.urls import reverse
+from django.utils.html import format_html
+from django.utils.http import urlencode
+
+from typing import Any
 
 
 class CommentStatusFilter(admin.SimpleListFilter):
@@ -37,40 +37,86 @@ class CommentStatusFilter(admin.SimpleListFilter):
             return queryset.filter(status=Comment.COMMENT_STATUS_NOT_APPROVED)
 
 
-class ProductAttributeInLine(admin.TabularInline):
-    model  = ProductAttribute
-    fields = ["variable", "price", "quantity", "discount_active", "discount", ]
-    extra  = 1
+class DiscountActiveFilter(admin.SimpleListFilter):
+    title = 'discount active'
+    parameter_name = 'discount_active'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', 'Active'),
+            ('no', 'Not Active')
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(discount_active=True)
+        if self.value() == 'no':
+            return queryset.filter(discount_active=False)
 
 
-class ProductReviewInLine(admin.TabularInline):
-    model  = ProductReview
-    fields = ["review_rating", "user", ]
-    extra  = 1
+class QuantityFilter(admin.SimpleListFilter):
+    title = 'Quantity'
+    parameter_name = 'quantity'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('H', 'High quantity'),
+            ('M', 'Medium quantity'),
+            ('L', 'Low quantity')
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'H':
+            return queryset.filter(quantity__gt=10)
+        if self.value() == 'M':
+            return queryset.filter(quantity__gte=5, quantity__lte=10)
+        if self.value() == "L":
+            return queryset.filter(quantity__lt=5)
 
 
-class SubCategoryInLine(admin.TabularInline):
-    model  = SubCategory
-    fields = ['id', 'title', ]
-    extra  = 1
+class OrderStatusFilter(admin.SimpleListFilter):
+    CANCELED = 'Canceled'
+    DELIVERED = 'Delivered'
+    NOT_DELIVERED = 'Not Delivered'
+    title = 'Canceled, Not Delivered Or Delivered Status Orders'
+    parameter_name = 'status'
+
+    def lookups(self, request: Any, model_admin):
+        return [
+            (OrderStatusFilter.CANCELED, 'Canceled'),
+            (OrderStatusFilter.DELIVERED, 'Delivered'),
+            (OrderStatusFilter.NOT_DELIVERED, 'Not Delivered')
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == OrderStatusFilter.CANCELED:
+            return queryset.filter(status=Order.ORDER_STATUS_CANCELED)
+        if self.value() == OrderStatusFilter.DELIVERED:
+            return queryset.filter(status=Order.ORDER_STATUS_DELIVERED)
+        if self.value() == OrderStatusFilter.NOT_DELIVERED:
+            return queryset.filter(status=Order.ORDER_STATUS_NOT_DELIVERED)
 
 
-class CommentInLine(admin.TabularInline):
-    model  = Comment
-    fields = ['id', 'user', 'body', "status", ]
-    extra  = 1
+class OrderPaidStatusFilter(admin.SimpleListFilter):
+    title = 'IsPaid'
+    parameter_name = 'is_paid'
 
+    def lookups(self, request: Any, model_admin):
+        return [
+            ('p', 'Paid'),
+            ('np', 'Not Paid'),
+            ]
 
-class WishlistItemInLine(admin.TabularInline):
-    model  = WishlistItem
-    fields = ["id", "product", ]
-    extra  = 1
+    def queryset(self, request, queryset):
+        if self.value() == 'p':
+            return queryset.filter(is_paid=True)
+        if self.value() == 'np':
+            return queryset.filter(is_paid=False)
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display  = ['id', 'title', 'num_of_products', ]
-    inlines       = [SubCategoryInLine, ]
     search_fields = ['title', ]
 
     prepopulated_fields = {
@@ -136,7 +182,7 @@ class ProductAdminForm(forms.ModelForm):
                                          widget=autocomplete.ModelSelect2)
     class Meta:
         model  = Product
-        fields = ["title", "description", "slug", "subcategory", "in_stock", ]
+        fields = ["title", "description", "slug", "subcategory", "in_stock", "total_sold", ]
 
 
 @admin.register(Product)
@@ -146,30 +192,20 @@ class ProductAdmin(admin.ModelAdmin):
                      "category",
                      "product_subcategory", 
                      "num_of_attributes",
-                    #  "num_of_comments",
-                     "stock_quantity", ]
+                     "num_of_comments",
+                     "num_of_reviews",
+                     "stock_quantity", 
+                     "total_sold", ]
 
     list_filter   = ['datetime_created', ]
-    inlines       = [ProductAttributeInLine, CommentInLine, ProductReviewInLine, ]
-    search_fields = ['name', ]
+    search_fields = ['title', ]
     form          = ProductAdminForm
     list_per_page = 20
 
     prepopulated_fields = {
         'slug': ['title', ]
     }
-    
-    # @admin.display(description='# comments', ordering='comments_count')
-    # def num_of_comments(self, product: Product):
-    #     url = (
-    #         reverse('admin:products_comment_changelist') 
-    #         + '?'
-    #         + urlencode({
-    #             'product__id': product.id,
-    #         })
-    #     )
-    #     return format_html('<a href="{}">{}</a>', url, product.comments_count)
-    
+
     @admin.display(description='# attributes', ordering='attributes_count')
     def num_of_attributes(self, product: Product):
         url = (
@@ -181,15 +217,40 @@ class ProductAdmin(admin.ModelAdmin):
         )
         return format_html('<a href="{}">{}</a>', url, product.attributes_count)
 
+    @admin.display(description='# comments', ordering='comments_count')
+    def num_of_comments(self, product: Product):
+        url = (
+            reverse('admin:shop_comment_changelist') 
+            + '?'
+            + urlencode({
+                'product__id': product.id,
+            })
+        )
+        return format_html('<a href="{}">{}</a>', url, product.comments_count)
+
+    @admin.display(description='# reviews', ordering='reviews_count')
+    def num_of_reviews(self, product: Product):
+        url = (
+            reverse('admin:shop_productreview_changelist') 
+            + '?'
+            + urlencode({
+                'product__id': product.id,
+            })
+        )
+        return format_html('<a href="{}">{}</a>', url, product.reviews_count)
+
     @admin.display(description='subcategory', ordering='subcategory__title')
     def product_subcategory(self, product: Product):
         return product.subcategory.title
     
     def get_queryset(self, request):
         return super().get_queryset(request) \
-                      .prefetch_related('attributes') \
-                      .annotate(attributes_count=Count('attributes')) \
-    
+                      .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("variable", "discount"))) \
+                      .prefetch_related("comments") \
+                      .annotate(attributes_count=Count('attributes', distinct=True), 
+                                comments_count=Count('comments', distinct=True), 
+                                reviews_count=Count('reviews', distinct=True)) \
+
     def save_model(self, request, obj: Product, form, change):
         subcategories = obj.subcategory.id
         if subcategories:
@@ -204,27 +265,27 @@ class ProductAdmin(admin.ModelAdmin):
 class ProductAttributeAdminForm(forms.ModelForm):
     class Meta:
         model = ProductAttribute
-        fields = ["product", "variable", "price", "quantity", "discount", "discount_active", ]
+        fields = ["product", "variable", "price", "quantity", "total_sold", "discount", "discount_active", ]
 
 
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
     form                = ProductAttributeAdminForm
-    list_display        = ["id", "title", "product", "variable", "price", "discounted_price", "quantity", "discount_active", ]
-    list_filter         = ['datetime_created', ]
+    list_display        = ["id", "title", "product", "variable", "price", "total_sold", "quantity", "discounted_price", "discount_amount", "discount_active", ]
+    list_filter         = ['datetime_created', DiscountActiveFilter, QuantityFilter, ]
     autocomplete_fields = ["product", ]
 
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
-    list_display        = ['id', 'user', 'product', 'body', 'status', ]
+    list_display        = ['id', 'user', 'product', 'body', 'status', 'datetime_created', 'datetime_modified', ]
     list_filter         = [CommentStatusFilter, ]
     autocomplete_fields = ['product', ]
 
 
 @admin.register(ProductReview)
 class ProductReviewAdmin(admin.ModelAdmin):
-    list_display        = ["id", "user", "product", "review_rating", ]
+    list_display        = ["id", "user", "product", "review_rating", "datetime_created", "datetime_modified", ]
     autocomplete_fields = ['product', ]
 
 
@@ -235,13 +296,12 @@ class DiscountAdmin(admin.ModelAdmin):
 
 @admin.register(Variable)
 class VariableAdmin(admin.ModelAdmin):
-    list_display = ["id", "varaible_type", "title", "color_code", ]
+    list_display = ["id", "variable_type", "title", "color_code", ]
 
 
 @admin.register(Wishlist)
 class WishlistAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', ]
-    inlines = [WishlistItemInLine, ]
 
 
 @admin.register(WishlistItem)
@@ -259,7 +319,7 @@ class ShippingMethodForm(forms.ModelForm):
 
 @admin.register(ShippingMethod)
 class ShippingMethodAdmin(admin.ModelAdmin):
-    list_display = ["shipping_method", "price", "delivery_time", "shipping_method_active", "datetime_created", "datetime_modified", ]
+    list_display = ["id", "shipping_method", "price", "delivery_time", "shipping_method_active", "datetime_created", "datetime_modified", ]
     form = ShippingMethodForm
 
     def save_model(self, request, obj, form, change):
@@ -292,29 +352,49 @@ class AddressAdmin(admin.ModelAdmin):
 class CartItemInLine(admin.TabularInline):
     model  = CartItem
     fields = ["cart", "product", "quantity", ]
+    raw_id_fields = ["product", ]
     extra  = 1
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("product")
 
 
 @admin.register(Cart)
 class CartAdmin(admin.ModelAdmin):
-    list_display = ["id", "datetime_created", "datetime_modified", ]
-    inlines = [CartItemInLine, ]
+    list_display = ["id", "num_of_items", "datetime_created", "datetime_modified", ]
+
+    @admin.display(description='# items', ordering='items_count')
+    def num_of_items(self, cart: Cart):
+        url = (
+            reverse('admin:shop_cartitem_changelist') 
+            + '?'
+            + urlencode({
+                'cart__id': cart.id,
+            })
+        )
+        return format_html('<a href="{}">{}</a>', url, cart.items_count)
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request) \
+                      .prefetch_related('items') \
+                      .annotate(items_count=Count('items')) \
 
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ['cart', 'product', "quantity", ]
+    list_display = ['id', 'cart', 'product', "quantity", ]
 
-
-class OrderItemInLine(admin.TabularInline):
-    model  = OrderItem
-    fields = ["order", "product", "variable", "price", "quantity", "discount" ] 
-    extra  = 0
+    def get_queryset(self, request):
+        return super().get_queryset(request)\
+                      .select_related("product", "cart")\
+                      .select_related("product__variable")
 
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ["user", 
+    list_display = ["id",
+                    "num_of_items",
+                    "user", 
                     "receiver_name", 
                     "receiver_family", 
                     "receiver_phone_number", 
@@ -332,11 +412,26 @@ class OrderAdmin(admin.ModelAdmin):
                     "datetime_modified",
                     "datetime_created",
                     ]
-    inlines = [
-        OrderItemInLine,
-    ]
+    list_filter = [OrderPaidStatusFilter, OrderStatusFilter, ]
+    search_fields = ["number", "receiver_name", "receiver_family", ]
+
+    @admin.display(description='# items', ordering='items_count')
+    def num_of_items(self, order: Order):
+        url = (
+            reverse('admin:shop_orderitem_changelist') 
+            + '?'
+            + urlencode({
+                'order__id': order.id,
+            })
+        )
+        return format_html('<a href="{}">{}</a>', url, order.items_count)
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request) \
+                      .prefetch_related('items') \
+                      .annotate(items_count=Count('items')) \
 
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ["order", "product", "quantity", "variable", "get_item_total_price", ]
+    list_display = ["id", "order", "product", "quantity", "variable", "get_item_total_price", ]

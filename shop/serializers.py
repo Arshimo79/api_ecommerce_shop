@@ -124,7 +124,7 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
             representation.pop('discounted_price')
             representation.pop('discount')
 
-        if instance.variable.varaible_type == 'size':
+        if instance.variable.variable_type == 'size':
             representation['size'] = instance.variable.title
         else:
             representation['color'] = instance.variable.title
@@ -178,7 +178,7 @@ class CartProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        if instance.variable.varaible_type == 'size':
+        if instance.variable.variable_type == 'size':
             representation['size'] = instance.variable.title
         else:
             representation['color'] = instance.variable.title
@@ -324,7 +324,7 @@ class OrderItemProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
-        if instance.variable.varaible_type == 'size':
+        if instance.variable.variable_type == 'size':
             representation['size'] = instance.variable.title
         else:
             representation['color'] = instance.variable.title
