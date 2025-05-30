@@ -26,7 +26,7 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductAttribute
-        fields = ['price', 'discounted_price', 'discount', 'quantity',  ]
+        fields = ['price', 'discounted_price', 'discount', 'quantity', ]
 
     def get_discounted_price(self, obj):
         return obj.discounted_price if obj.discount_active and obj.quantity > 0 else None
@@ -43,18 +43,20 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+# checked
 class ProductSerializer(serializers.ModelSerializer):
-    price = serializers.IntegerField(read_only=True)
-    discounted_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-    has_discount = serializers.BooleanField(read_only=True)
-    discount_amount = serializers.FloatField(read_only=True)
+    price = serializers.IntegerField()
+    discounted_price = serializers.IntegerField()
+    discount_amount = serializers.IntegerField()
     rates_average = serializers.SerializerMethodField()
     number_of_reviews = serializers.SerializerMethodField()
+    has_discount = serializers.BooleanField()
     class Meta:
         model = Product
-        fields = ['id', 
-                  'title', 'description', 'price', 'discounted_price', 'discount_amount', 'in_stock', 'slug', 'rates_average', 'number_of_reviews', 'has_discount', 
-                 ]
+        fields = ['id', 'slug', 'title', 
+                  'description', 'price', 'discounted_price', 
+                  'discount_amount', 'in_stock', 'rates_average', 
+                  'number_of_reviews', 'has_discount', ]
 
     def get_rates_average(self, obj):
         return obj.rates_average
@@ -64,6 +66,10 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+
+        if instance.rates_average == None:
+            representation.pop("rates_average", None)
+            representation["number_of_reviews"] = "No reviews have been recorded for this product"
 
         if instance.has_discount == False:
             representation.pop('has_discount', None)
@@ -100,19 +106,21 @@ class AddCommentSerializer(serializers.ModelSerializer):
         return Comment.objects.create(user=user, product=product, **validated_data)
 
 
+# checked
 class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
-    discounted_price = serializers.SerializerMethodField(read_only=True)
-    discount = serializers.SerializerMethodField(read_only=True)
+    price = serializers.IntegerField()
+    discounted_price = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductAttribute
-        fields = ['id', 'price', 'discounted_price', 'discount', 'quantity', 'discount_active', ]
+        fields = ['id', 'price', 'discounted_price', 'discount_amount', 'quantity', 'discount_active', ]
 
     def get_discounted_price(self, obj):
-        return obj.discounted_price if obj.discount_active and obj.quantity > 0 else None
+        return int(obj.discounted_price) if obj.discount_active and obj.quantity > 0 else None
 
-    def get_discount(self, obj):
-        return obj.discount_amount if obj.discount_active and obj.quantity > 0 else None
+    def get_discount_amount(self, obj):
+        return int(obj.discount_amount) if obj.discount_active and obj.quantity > 0 else None
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -122,7 +130,7 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
 
         if instance.discount_active == False:
             representation.pop('discounted_price')
-            representation.pop('discount')
+            representation.pop('discount_amount')
 
         if instance.variable.variable_type == 'size':
             representation['size'] = instance.variable.title
@@ -132,6 +140,7 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+# checked
 class ProductDetailSerializer(serializers.ModelSerializer):
     attributes = ProductAttributeInProductDetailSerializer(many=True)
     rates_average = serializers.SerializerMethodField()
@@ -150,6 +159,15 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     def get_default_attribute(self, obj):
         default_attribute = obj.default_attribute()
         return ProductAttributeInProductDetailSerializer(default_attribute).data
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        if instance.rates_average == None:
+            representation.pop("rates_average", None)
+            representation["number_of_reviews"] = "No reviews have been recorded for this product"
+
+        return {key: val for key, val in representation.items() if val is not None}
 
 
 class CategorySerializer(serializers.ModelSerializer):

@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import OuterRef, Subquery, Value, Case, When, BooleanField, FloatField, Count, Avg
+from django.db.models import OuterRef, Subquery, Value, Case, When, BooleanField, FloatField, Count, Avg, DecimalField, IntegerField
 from django.db.models.functions import Coalesce, Cast
 
 
@@ -37,7 +37,8 @@ class ProductQuerySet(models.QuerySet):
 
             discount_amount=Coalesce(
                 Subquery(discounted_attrs.values('discount_amount')[:1]),
-                Value(0.00)
+                Value(0.00),
+                output_field=IntegerField()
             ),
 
             has_discount=Case(

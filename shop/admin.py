@@ -265,7 +265,7 @@ class ProductAdmin(admin.ModelAdmin):
 class ProductAttributeAdminForm(forms.ModelForm):
     class Meta:
         model = ProductAttribute
-        fields = ["product", "variable", "price", "quantity", "total_sold", "discount", "discount_active", ]
+        fields = ["title", "product", "variable", "price", "quantity", "total_sold", "discount", "discount_active", ]
 
 
 @admin.register(ProductAttribute)

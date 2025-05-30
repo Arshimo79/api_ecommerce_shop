@@ -2,8 +2,6 @@ from .managers import ProductManager
 
 from core.models import CustomUser
 
-from decimal import Decimal, ROUND_HALF_UP
-
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -38,7 +36,7 @@ class SubCategory(models.Model):
 
 
 class Discount(models.Model):
-    discount = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(100)], verbose_name="discount_amount")
+    discount = models.DecimalField(max_digits=3, decimal_places=0, validators=[MinValueValidator(0), MaxValueValidator(100)], verbose_name="discount_amount")
     description = models.CharField(max_length=255, blank=True)
 
     class Meta:
@@ -124,12 +122,12 @@ class ProductAttribute(models.Model):
     title = models.CharField(max_length=300)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="attributes")
     variable = models.ForeignKey(Variable, on_delete=models.CASCADE, related_name="products", blank=True)
-    price = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    price = models.DecimalField(max_digits=9, decimal_places=0, default=0)
     total_sold = models.PositiveIntegerField(default=0)
-    discounted_price = models.DecimalField(max_digits=12, decimal_places=0, blank=True, null=True)
+    discounted_price = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
     quantity = models.PositiveIntegerField(default=0)
     discount = models.ForeignKey(Discount, on_delete=models.PROTECT, related_name="products", null=True, blank=True)
-    discount_amount = models.DecimalField(max_digits=5, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(100)], null=True, blank=True)
+    discount_amount = models.DecimalField(max_digits=3, decimal_places=0, validators=[MinValueValidator(0), MaxValueValidator(100)], null=True, blank=True)
     discount_active = models.BooleanField(default=False)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
@@ -137,15 +135,9 @@ class ProductAttribute(models.Model):
     def calculate_discounted_price(self):
         if not self.discount or not self.discount_active:
             return None
-
-        # The exact amount of the discount percentage
-        discount_percent = Decimal(self.discount.discount).quantize(Decimal('0.01'))
-
-        # Calculate of discount amount
-        discount_value = (Decimal(self.price) * discount_percent / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-
-        # Discounted final price
-        return Decimal(self.price) - discount_value
+        
+        discount_value = (self.price) * (self.discount.discount / 100)
+        return self.price - discount_value
 
     def save(self, *args, **kwargs):
         self.title = self.product.title
@@ -242,7 +234,7 @@ class CartItem(models.Model):
 
 class ShippingMethod(models.Model):
     shipping_method = models.CharField(max_length=50)
-    price = models.DecimalField(max_digits=10, decimal_places=0, blank=True, null=True)
+    price = models.DecimalField(max_digits=6, decimal_places=0, blank=True, null=True)
     delivery_time = models.DurationField()
     shipping_method_active = models.BooleanField(default=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
@@ -301,9 +293,9 @@ class Order(models.Model):
     number = models.CharField(max_length=50, unique=True, editable=False)
     tracking_code = models.CharField(max_length=15, unique=True, blank=True, null=True)
     shipping_method = models.ForeignKey(ShippingMethod, on_delete=models.PROTECT, related_name="orders")
-    shipping_price = models.DecimalField(max_digits=10, decimal_places=0, default=None, blank=True, null=True)
-    total_price = models.DecimalField(max_digits=12, decimal_places=0)
-    total_discount_amount = models.DecimalField(max_digits=12, decimal_places=0, blank=True, null=True)
+    shipping_price = models.DecimalField(max_digits=6, decimal_places=0, default=None, blank=True, null=True)
+    total_price = models.DecimalField(max_digits=9, decimal_places=0)
+    total_discount_amount = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
     datetime_modified = models.DateTimeField(auto_now=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
 
@@ -355,11 +347,11 @@ class Order(models.Model):
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="items")
     product = models.ForeignKey(ProductAttribute, on_delete=models.PROTECT, related_name='order_items')
-    price = models.DecimalField(max_digits=12, decimal_places=0)
+    price = models.DecimalField(max_digits=9, decimal_places=0)
     variable = models.CharField(max_length=250, blank=True, null=True)
     quantity = models.PositiveSmallIntegerField()
-    discount = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
-    discounted_price = models.DecimalField(max_digits=12, decimal_places=0, blank=True, null=True)
+    discount = models.DecimalField(max_digits=3, decimal_places=0, blank=True, null=True)
+    discounted_price = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
     discount_active = models.BooleanField(default=False)
 
     def get_item_total_price(self):
@@ -371,14 +363,8 @@ class OrderItem(models.Model):
         if not self.discount or not self.discount_active:
             return None
 
-        # The exact amount of the discount percentage
-        discount_percent = Decimal(self.discount).quantize(Decimal('0.01'))
-
-        # Calculate of discount amount
-        discount_value = (Decimal(self.price) * discount_percent / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
-
-        # Discounted final price
-        return Decimal(self.price) - discount_value
+        discount_value = (self.price) * (self.discount / 100)
+        return self.price - discount_value
 
     def save(self, *args, **kwargs):
         self.title = self.product.title

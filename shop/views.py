@@ -46,6 +46,7 @@ from .serializers import\
     OrderItemSerializer
 
 
+# checked
 class ProductViewSet(ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
