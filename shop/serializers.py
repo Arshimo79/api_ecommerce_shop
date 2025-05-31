@@ -186,19 +186,27 @@ class SubCategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'slug', 'title', 'category', ]
 
 
+# checked
 class CartProductSerializer(serializers.ModelSerializer):
-    final_price = serializers.SerializerMethodField()
+    price = serializers.IntegerField()
+    discounted_price = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
     class Meta:
         model = ProductAttribute
-        fields = ['title', 'final_price', ]
-
-    def get_final_price(self, obj):
-        if obj.discount_active:
-            return obj.discounted_price
-        return obj.price
+        fields = ['id', 'title', 'price', 'discounted_price', 'discount_amount', ]
     
+    def get_discounted_price(self, obj):
+        return int(obj.discounted_price) if obj.discount_active and obj.quantity > 0 else None
+
+    def get_discount_amount(self, obj):
+        return int(obj.discount_amount) if obj.discount_active and obj.quantity > 0 else None
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+
+        if instance.discount_active == False:
+            representation.pop('discounted_price', None)
+            representation.pop('discount_amount', None)
 
         if instance.variable.variable_type == 'size':
             representation['size'] = instance.variable.title
@@ -208,11 +216,12 @@ class CartProductSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+# checked
 class ChangeCartItemSerializer(serializers.ModelSerializer):
     quantity = serializers.IntegerField()
     class Meta:
         model = CartItem
-        fields = ['quantity']
+        fields = ['quantity', ]
 
     def validate_quantity(self, value):
         cart_item = self.instance
@@ -231,6 +240,7 @@ class ChangeCartItemSerializer(serializers.ModelSerializer):
         return value
 
 
+# checked
 class AddCartItemSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=ProductAttribute.objects.all())
     quantity = serializers.IntegerField(min_value=1)
@@ -267,8 +277,9 @@ class AddCartItemSerializer(serializers.Serializer):
         return cart_item
 
 
+# checked
 class CartItemSerializer(serializers.ModelSerializer):
-    product = CartProductSerializer(read_only=True)
+    product = CartProductSerializer()
     item_total_price = serializers.SerializerMethodField()
     class Meta:
         model = CartItem
@@ -277,17 +288,17 @@ class CartItemSerializer(serializers.ModelSerializer):
     def get_item_total_price(self, obj: CartItem):
         if obj.product.discount_active:
             return obj.product.discounted_price * obj.quantity
-        return obj.product.price * obj.quantity
+        return int(obj.product.price * obj.quantity)
 
 
 class CartSerializer(serializers.ModelSerializer):
-    items = CartItemSerializer(many=True, read_only=True)
+    items = CartItemSerializer(many=True)
     total_price = serializers.SerializerMethodField()
     total_discount = serializers.SerializerMethodField()
     total_items = serializers.SerializerMethodField()
     class Meta:
         model = Cart
-        fields = ['id', "items", "total_price", "total_discount", "total_items"]
+        fields = ["id", "items", "total_price", "total_discount", "total_items", ]
         read_only_fields = ["id", ]
 
     def get_total_items(self, obj):
@@ -304,13 +315,13 @@ class CartSerializer(serializers.ModelSerializer):
             if item.product.discount_active:
                 cart_total_dicount.append((item.product.price - item.product.discounted_price) * item.quantity)
 
-        return sum(cart_total_dicount)
+        return int(sum(cart_total_dicount))
 
     def get_total_price(self, cart: Cart):
-        return sum([item.quantity * item.product.discounted_price\
+        return int(sum([item.quantity * item.product.discounted_price\
                     if item.product.discount_active\
                     else item.quantity * item.product.price\
-                    for item in cart.items.all()])
+                    for item in cart.items.all()]))
 
 
 # checked

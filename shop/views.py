@@ -1,6 +1,6 @@
 from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet, ModelViewSet
 
@@ -150,6 +150,7 @@ class AddressViewSet(ModelViewSet):
         return {'user_id': user_id}
 
 
+# checked
 class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, GenericViewSet):
     queryset = Cart.objects.prefetch_related(Prefetch(
         "items",
@@ -162,8 +163,9 @@ class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, Gener
         return {'request': request}
 
 
+# checked
 class CartItemViewSet(ModelViewSet):
-    http_method_names = ['get', 'post', 'patch', 'delete']
+    http_method_names = ['get', 'post', 'patch', 'delete', ]
 
     def get_queryset(self):
         queryset = CartItem.objects.select_related('product__variable').all()
