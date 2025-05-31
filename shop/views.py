@@ -91,6 +91,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
             raise Http404("Product not found.")
 
 
+# checked
 class CommentViewSet(ModelViewSet):
     http_method_names = ["get", "post", "head", "options", ]
     permission_classes = [IsAuthenticatedOrReadOnly, ]

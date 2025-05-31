@@ -79,6 +79,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return representation
 
 
+# checked
 class CommentSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.username")
     class Meta:
@@ -86,6 +87,7 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ["id", "user_name", "body", ]
 
 
+# checked
 class AddCommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
