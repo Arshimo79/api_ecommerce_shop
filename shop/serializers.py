@@ -172,16 +172,18 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+# checked
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['slug', "title", ]
+        fields = ['id', 'slug', 'title', ]
 
 
+# checked
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
-        fields = ['slug', "title", "category", ]
+        fields = ['id', 'slug', 'title', 'category', ]
 
 
 class CartProductSerializer(serializers.ModelSerializer):

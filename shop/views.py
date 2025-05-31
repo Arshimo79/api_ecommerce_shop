@@ -112,12 +112,14 @@ class CommentViewSet(ModelViewSet):
         return CommentSerializer
 
 
+# checked
 class CategoryViewSet(ReadOnlyModelViewSet):
     queryset = Category.objects.prefetch_related("products").all()
     serializer_class = CategorySerializer
     lookup_field = 'slug'
 
 
+# checked
 class SubCategoryViewSet(ReadOnlyModelViewSet):
     serializer_class = SubCategorySerializer
     lookup_field = 'slug'
