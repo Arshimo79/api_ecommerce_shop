@@ -313,6 +313,7 @@ class CartSerializer(serializers.ModelSerializer):
                     for item in cart.items.all()])
 
 
+# checked
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
@@ -329,7 +330,7 @@ class AddressSerializer(serializers.ModelSerializer):
 
     def validate_receiver_phone_number(self, value):
         if not re.match(r'^09\d{9}$', value):
-            raise serializers.ValidationError("put your number as following example: 09123456789")
+            raise serializers.ValidationError("Put your number as following example: 09123456789")
         return value
 
     def create(self, validated_data):

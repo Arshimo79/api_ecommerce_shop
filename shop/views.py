@@ -134,8 +134,9 @@ class SubCategoryViewSet(ReadOnlyModelViewSet):
         return queryset
 
 
+# checked
 class AddressViewSet(ModelViewSet):
-    http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head']
+    http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head', ]
     permission_classes = [IsAuthenticated, ]
     serializer_class = AddressSerializer
 
