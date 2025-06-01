@@ -300,6 +300,16 @@ class VariableAdmin(admin.ModelAdmin):
     list_display = ["id", "variable_type", "title", "color_code", ]
 
 
+@admin.register(Wishlist)
+class WishlistAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', ]
+
+
+@admin.register(WishlistItem)
+class WishlistItemAdmin(admin.ModelAdmin):
+    list_display = ["id", "wish_list", "product", ]
+
+
 class ShippingMethodForm(forms.ModelForm):
     delivery_time_hours = forms.IntegerField(label="Delivery Time (Hours)", min_value=0)
 

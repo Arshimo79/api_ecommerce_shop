@@ -21,7 +21,9 @@ from .models import Product,\
     ProductReview,\
     Address,\
     Order,\
-    OrderItem
+    OrderItem,\
+    Wishlist,\
+    WishlistItem
 from .serializers import\
     ProductSerializer,\
     ProductDetailSerializer,\
@@ -37,7 +39,11 @@ from .serializers import\
     AddProductReviewSerializer,\
     AddressSerializer,\
     OrderSerializer,\
-    OrderItemSerializer
+    OrderItemSerializer,\
+    WishlistSerializer,\
+    WishlistCreateSerializer,\
+    WishlistItemSerializer,\
+    AddWishlistItemSerializer
 
 
 # checked
@@ -223,3 +229,57 @@ class ProductReviewViewSet(ModelViewSet):
             return AddProductReviewSerializer
 
         return ProductReviewSerializer
+
+
+class WishlistViewSet(ModelViewSet):
+    http_method_names = ['get', 'post', 'delete', 'options', 'head', ]
+    permission_classes = [IsAuthenticated, ]
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return WishlistCreateSerializer
+        
+        return WishlistSerializer
+
+    def get_serializer_context(self):
+        return {'user_id': self.request.user.id}
+
+    def get_queryset(self):
+        queryset = Wishlist.objects.select_related("user").prefetch_related(Prefetch(
+        "items",
+        WishlistItem.objects.select_related("product").prefetch_related('product__attributes').all(),
+        )).all()
+    
+        user = self.request.user
+
+        if user.is_staff:
+            return queryset
+
+        return queryset.filter(user_id=user.id)
+
+
+class WishlistItemViewSet(ModelViewSet):
+    http_method_names = ['get', 'post', 'delete', 'options', 'head', ]
+    permission_classes = [IsAuthenticated, ]
+    serializer_class = WishlistItemSerializer
+
+    def get_serializer_context(self):
+        wishlist_pk = self.kwargs['wishlist_pk']
+        return {'wishlist_pk': wishlist_pk}
+
+    def get_queryset(self):
+        wishlist_pk = self.kwargs['wishlist_pk']
+
+        product_qs = Product.objects.custom_query().prefetch_related(
+            Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount"))
+        )
+
+        return WishlistItem.objects.select_related('product').prefetch_related(
+            Prefetch('product', queryset=product_qs)
+        ).filter(wish_list_id=wishlist_pk)
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return AddWishlistItemSerializer
+
+        return WishlistItemSerializer
