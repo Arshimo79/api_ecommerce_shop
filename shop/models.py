@@ -203,20 +203,6 @@ class ProductReview(models.Model):
         verbose_name_plural='8. Reviews'
 
 
-class Wishlist(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="wishlist")
-    datetime_created = models.DateTimeField(auto_now_add=True)
-    datetime_modified = models.DateTimeField(auto_now=True)
-
-
-class WishlistItem(models.Model):
-    wish_list = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name="items")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="wish_items")
-
-    class Meta:
-        unique_together = [['wish_list', 'product']]
-
-
 class Cart(models.Model):
     id = models.UUIDField(primary_key=True, editable=False, unique=True, default=uuid4)
     datetime_created = models.DateTimeField(auto_now_add=True)

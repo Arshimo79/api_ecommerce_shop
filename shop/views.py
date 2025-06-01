@@ -17,8 +17,6 @@ from .models import Product,\
     SubCategory,\
     Cart,\
     CartItem,\
-    Wishlist,\
-    WishlistItem,\
     Comment,\
     ProductReview,\
     Address,\
@@ -33,10 +31,6 @@ from .serializers import\
     CartItemSerializer,\
     AddCartItemSerializer,\
     ChangeCartItemSerializer,\
-    WishlistSerializer,\
-    WishlistItemSerializer,\
-    AddWishlistItemSerializer,\
-    WishlistCreateSerializer,\
     CommentSerializer,\
     AddCommentSerializer,\
     ProductReviewSerializer,\
@@ -208,56 +202,9 @@ class OrderItemViewSet(ModelViewSet):
         return OrderItem.objects.select_related("product__variable").filter(order_id=order_pk, order__user_id=user_id).all()
 
 
-class WishlistViewSet(ModelViewSet):
-    http_method_names = ['get', 'post', 'delete', 'options', 'head']
-    permission_classes = [IsAuthenticated, ]
-
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return WishlistCreateSerializer
-        
-        return WishlistSerializer
-
-    def get_serializer_context(self):
-        return {'user_id': self.request.user.id}
-
-    def get_queryset(self):
-        queryset = Wishlist.objects.select_related("user").prefetch_related(Prefetch(
-        "items",
-        WishlistItem.objects.select_related("product").prefetch_related('product__attributes').all(),
-        )).all()
-    
-        user = self.request.user
-
-        if user.is_staff:
-            return queryset
-
-        return queryset.filter(user_id=user.id)
-
-
-class WishlistItemViewSet(ModelViewSet):
-    http_method_names = ['get', 'post', 'delete', 'options', 'head']
-    permission_classes = [IsAuthenticated, ]
-    serializer_class = WishlistItemSerializer
-
-    def get_serializer_context(self):
-        wishlist_pk = self.kwargs['wishlist_pk']
-        return {'wishlist_pk': wishlist_pk}
-
-    def get_queryset(self):
-        queryset = WishlistItem.objects.select_related("product").prefetch_related('product__attributes').all()
-        wishlist_pk = self.kwargs['wishlist_pk']
-        return queryset.filter(wish_list_id=wishlist_pk)
-
-    def get_serializer_class(self):
-        if self.request.method == "POST":
-            return AddWishlistItemSerializer
-
-        return WishlistItemSerializer
-
-
+# checked
 class ProductReviewViewSet(ModelViewSet):
-    http_method_names = ["get", "post", "head", "options", "delete"]
+    http_method_names = ["get", "post", "delete", "head", "options", ]
     serializer_class = ProductReviewSerializer
     permission_classes = [IsOwnerOrReadOnly, ]
 

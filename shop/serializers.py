@@ -12,35 +12,10 @@ from .models import Product,\
     CartItem,\
     Order,\
     OrderItem,\
-    Wishlist,\
-    WishlistItem,\
     Comment,\
     ProductReview,\
     Address,\
     ShippingMethod
-
-
-class ProductAttributeSerializer(serializers.ModelSerializer):
-    discounted_price = serializers.SerializerMethodField(read_only=True)
-    discount = serializers.SerializerMethodField(read_only=True)
-
-    class Meta:
-        model = ProductAttribute
-        fields = ['price', 'discounted_price', 'discount', 'quantity', ]
-
-    def get_discounted_price(self, obj):
-        return obj.discounted_price if obj.discount_active and obj.quantity > 0 else None
-
-    def get_discount(self, obj):
-        return obj.discount_amount if obj.discount_active and obj.quantity > 0 else None
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-
-        if instance.quantity == 0:
-            representation['price'] = 'This product is not in stock'
-
-        return {key: val for key, val in representation.items() if val is not None}
 
 
 # checked
@@ -53,10 +28,17 @@ class ProductSerializer(serializers.ModelSerializer):
     has_discount = serializers.BooleanField()
     class Meta:
         model = Product
-        fields = ['id', 'slug', 'title', 
-                  'description', 'price', 'discounted_price', 
-                  'discount_amount', 'in_stock', 'rates_average', 
-                  'number_of_reviews', 'has_discount', ]
+        fields = ['id', 
+                  'slug', 
+                  'title', 
+                  'description', 
+                  'price', 
+                  'discounted_price', 
+                  'discount_amount', 
+                  'in_stock', 
+                  'rates_average', 
+                  'number_of_reviews', 
+                  'has_discount', ]
 
     def get_rates_average(self, obj):
         return obj.rates_average
@@ -430,57 +412,6 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 # checked
-class WishlistItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
-    class Meta:
-        model = WishlistItem
-        fields = ["id", "product", ]
-
-
-class WishlistSerializer(serializers.ModelSerializer):
-    items = WishlistItemSerializer(many=True)
-    class Meta:
-        model = Wishlist
-        fields = ["id", "items", ]
-
-
-class WishlistCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Wishlist
-        fields = ["id", ]
-
-    def create(self, validated_data):
-        user_id = self.context["user_id"]
-
-        try:
-            wish_list = Wishlist.objects.get(user_id=user_id)
-            raise serializers.ValidationError('You already have a wish list.')
-        except Wishlist.DoesNotExist:
-            wish_list = Wishlist.objects.create(user_id=user_id, **validated_data)
-
-        self.instance = wish_list
-        return wish_list
-
-
-class AddWishlistItemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WishlistItem
-        fields = ['id', 'product', ]
-
-    def create(self, validated_data):
-        wishlist_id = self.context["wishlist_pk"]
-        product = validated_data.get('product')
-
-        try:
-            wishlist_item = WishlistItem.objects.get(wish_list_id=wishlist_id, product_id=product.id)
-            raise serializers.ValidationError("This Product is in your wish list.")
-        except WishlistItem.DoesNotExist:
-            wishlist_item = WishlistItem.objects.create(wish_list_id=wishlist_id, **validated_data)
-
-        self.instance = wishlist_item
-        return wishlist_item
-
-
 class ProductReviewSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.username")
     
@@ -489,6 +420,7 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         fields = ["id", "user_name", "review_rating", ]
 
 
+# checked
 class AddProductReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductReview

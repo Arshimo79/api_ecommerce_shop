@@ -10,7 +10,6 @@ router.register('categories', views.CategoryViewSet, basename='category')
 router.register('subcategories', views.SubCategoryViewSet, basename='subcategory')
 router.register('carts', views.CartViewSet, basename="cart")
 router.register('orders', views.OrderViewSet, basename='order')
-router.register('wishlists', views.WishlistViewSet, basename='wishlist')
 router.register('addresses', views.AddressViewSet, basename='address')
 
 product_router = routers.NestedDefaultRouter(router, "products", lookup="product")
@@ -33,9 +32,6 @@ cart_router.register('items', views.CartItemViewSet, basename='cart-items')
 order_router = routers.NestedDefaultRouter(router, 'orders', lookup="order")
 order_router.register('items', views.OrderItemViewSet, basename='order-items')
 
-wishlist_router = routers.NestedDefaultRouter(router, 'wishlists', lookup="wishlist")
-wishlist_router.register("items", views.WishlistItemViewSet, basename="wishlist-items")
-
 urlpatterns = [
     path('', include(router.urls)),
     path('', include(product_router.urls)),
@@ -43,6 +39,5 @@ urlpatterns = [
     path('', include(subcategory_router.urls)),
     path('', include(subcategory_products_router.urls)),
     path('', include(cart_router.urls)),
-    path('', include(wishlist_router.urls)),
     path('', include(order_router.urls))
 ]
