@@ -288,6 +288,8 @@ class Order(models.Model):
     receiver_city = models.CharField(max_length=85)
     receiver_address = models.TextField()
     receiver_postal_code = models.CharField(max_length=20)
+    receiver_latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    receiver_longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     status = models.CharField(choices=ORDER_STATUS, max_length=2, default=ORDER_STATUS_NOT_DELIVERED)
     is_paid = models.BooleanField(default=False)
     number = models.CharField(max_length=50, unique=True, editable=False)
@@ -345,7 +347,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="items")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(ProductAttribute, on_delete=models.PROTECT, related_name='order_items')
     price = models.DecimalField(max_digits=9, decimal_places=0)
     variable = models.CharField(max_length=250, blank=True, null=True)

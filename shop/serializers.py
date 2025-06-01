@@ -291,6 +291,7 @@ class CartItemSerializer(serializers.ModelSerializer):
         return int(obj.product.price * obj.quantity)
 
 
+# checked
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True)
     total_price = serializers.SerializerMethodField()
@@ -350,6 +351,7 @@ class AddressSerializer(serializers.ModelSerializer):
         return Address.objects.create(user_id=user_id, **validated_data)
 
 
+# checked
 class OrderItemProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductAttribute
@@ -366,15 +368,17 @@ class OrderItemProductSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+# checked
 class OrderItemSerializer(serializers.ModelSerializer):
+    price = serializers.IntegerField()
     product = OrderItemProductSerializer()
-    item_total_price = serializers.SerializerMethodField(read_only=True)
+    item_total_price = serializers.SerializerMethodField()
     class Meta:
         model = OrderItem
         fields = ['id', 'product', 'quantity', 'price', 'item_total_price', ]
 
     def get_item_total_price(self, obj):
-        return obj.get_item_total_price()
+        return int(obj.get_item_total_price())
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -386,15 +390,20 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+# checked
 class ShippingMethodInOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShippingMethod
         fields = ["id", "shipping_method", ]
 
 
+# checked
 class OrderSerializer(serializers.ModelSerializer):
+    shipping_price = serializers.IntegerField()
+    total_price = serializers.IntegerField()
+    total_discount_amount = serializers.IntegerField()
+    items = OrderItemSerializer(many=True)
     shipping_method = ShippingMethodInOrderSerializer()
-    items = OrderItemSerializer(many=True, read_only=True)
     status = serializers.SerializerMethodField()
     class Meta:
         model = Order
@@ -405,20 +414,22 @@ class OrderSerializer(serializers.ModelSerializer):
                   'receiver_city',
                   'receiver_address',
                   'receiver_postal_code',
+                  'receiver_latitude',
+                  'receiver_longitude',
                   'status',
                   'is_paid',
                   'tracking_code',
                   'shipping_method',
                   'shipping_price',
+                  'items', 
                   'total_price',
-                  'total_discount_amount',
-                  'items'
-                  ]
+                  'total_discount_amount', ]
 
     def get_status(self, obj):
         return obj.get_status_display()
 
 
+# checked
 class WishlistItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
     class Meta:

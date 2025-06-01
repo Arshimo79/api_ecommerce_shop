@@ -274,6 +274,7 @@ class ProductAttributeAdmin(admin.ModelAdmin):
     list_display        = ["id", "title", "product", "variable", "price", "total_sold", "quantity", "discounted_price", "discount_amount", "discount_active", ]
     list_filter         = ['datetime_created', DiscountActiveFilter, QuantityFilter, ]
     autocomplete_fields = ["product", ]
+    list_editable = ["price", "quantity", ]
 
 
 @admin.register(Comment)
@@ -400,7 +401,9 @@ class OrderAdmin(admin.ModelAdmin):
                     "receiver_phone_number", 
                     "receiver_city", 
                     "receiver_address", 
-                    "receiver_postal_code", 
+                    "receiver_postal_code",
+                    "receiver_latitude",
+                    "receiver_longitude",
                     "status",
                     "is_paid",
                     "number",

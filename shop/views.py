@@ -165,7 +165,7 @@ class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, Gener
 
 # checked
 class CartItemViewSet(ModelViewSet):
-    http_method_names = ['get', 'post', 'patch', 'delete', ]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head', ]
 
     def get_queryset(self):
         queryset = CartItem.objects.select_related('product__variable').all()
@@ -184,8 +184,9 @@ class CartItemViewSet(ModelViewSet):
         return CartItemSerializer
 
 
+# checked
 class OrderViewSet(ModelViewSet):
-    http_method_names = ['get', 'options', 'head']
+    http_method_names = ['get', 'delete', 'options', 'head', ]
     permission_classes = [IsAuthenticated, ]
     serializer_class = OrderSerializer
 
@@ -195,8 +196,9 @@ class OrderViewSet(ModelViewSet):
         return queryset.filter(user_id=user_id)
 
 
+# checked
 class OrderItemViewSet(ModelViewSet):
-    http_method_names = ['get', 'options', 'head']
+    http_method_names = ['get', 'options', 'head', ]
     permission_classes = [IsAuthenticated, ]
     serializer_class = OrderItemSerializer
 
