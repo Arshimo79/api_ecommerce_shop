@@ -190,7 +190,13 @@ class ProductAdmin(admin.ModelAdmin):
     list_display  = ["id", 
                      "title",
                      "category",
-                     "product_subcategory", 
+                     "product_subcategory",
+                     "price",
+                     "discounted_price",
+                     "discount_amount",
+                     "has_discount",
+                     "rates_average",
+                     "number_of_reviews",
                      "num_of_attributes",
                      "num_of_comments",
                      "num_of_reviews",
@@ -298,6 +304,7 @@ class DiscountAdmin(admin.ModelAdmin):
 @admin.register(Variable)
 class VariableAdmin(admin.ModelAdmin):
     list_display = ["id", "variable_type", "title", "color_code", ]
+    list_editable = ["title", "color_code", ]
 
 
 @admin.register(Wishlist)

@@ -60,7 +60,6 @@ class ProductViewSet(ReadOnlyModelViewSet):
             .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
             .order_by("-datetime_created")\
             .filter(in_stock=True)\
-            .custom_query()\
             .all()\
 
         category_slug = self.kwargs.get('category__slug')
@@ -85,7 +84,6 @@ class ProductViewSet(ReadOnlyModelViewSet):
             return Product.objects.select_related("category", "subcategory", )\
                 .prefetch_related(Prefetch("comments", queryset=Comment.objects.select_related("user")), 
                                   Prefetch("attributes", queryset=ProductAttribute.objects.select_related("variable")))\
-                .custom_query()\
                 .get(slug=slug)
         except Product.DoesNotExist:
             raise Http404("Product not found.")
@@ -231,9 +229,11 @@ class ProductReviewViewSet(ModelViewSet):
         return ProductReviewSerializer
 
 
+# checked
 class WishlistViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'delete', 'options', 'head', ]
     permission_classes = [IsAuthenticated, ]
+    queryset = Wishlist.objects.prefetch_related(Prefetch("items", queryset=WishlistItem.objects.select_related("product").all())).all()
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -244,20 +244,8 @@ class WishlistViewSet(ModelViewSet):
     def get_serializer_context(self):
         return {'user_id': self.request.user.id}
 
-    def get_queryset(self):
-        queryset = Wishlist.objects.select_related("user").prefetch_related(Prefetch(
-        "items",
-        WishlistItem.objects.select_related("product").prefetch_related('product__attributes').all(),
-        )).all()
-    
-        user = self.request.user
 
-        if user.is_staff:
-            return queryset
-
-        return queryset.filter(user_id=user.id)
-
-
+# checked
 class WishlistItemViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'delete', 'options', 'head', ]
     permission_classes = [IsAuthenticated, ]
@@ -269,14 +257,7 @@ class WishlistItemViewSet(ModelViewSet):
 
     def get_queryset(self):
         wishlist_pk = self.kwargs['wishlist_pk']
-
-        product_qs = Product.objects.custom_query().prefetch_related(
-            Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount"))
-        )
-
-        return WishlistItem.objects.select_related('product').prefetch_related(
-            Prefetch('product', queryset=product_qs)
-        ).filter(wish_list_id=wishlist_pk)
+        return WishlistItem.objects.select_related('product').filter(wish_list_id=wishlist_pk).all()
 
     def get_serializer_class(self):
         if self.request.method == "POST":

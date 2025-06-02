@@ -25,9 +25,6 @@ class ProductSerializer(serializers.ModelSerializer):
     price = serializers.IntegerField()
     discounted_price = serializers.IntegerField()
     discount_amount = serializers.IntegerField()
-    rates_average = serializers.SerializerMethodField()
-    number_of_reviews = serializers.SerializerMethodField()
-    has_discount = serializers.BooleanField()
     class Meta:
         model = Product
         fields = ['id', 
@@ -42,12 +39,6 @@ class ProductSerializer(serializers.ModelSerializer):
                   'number_of_reviews', 
                   'has_discount', ]
 
-    def get_rates_average(self, obj):
-        return obj.rates_average
-
-    def get_number_of_reviews(self, obj):
-        return obj.number_of_reviews
-
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
@@ -56,7 +47,6 @@ class ProductSerializer(serializers.ModelSerializer):
             representation["number_of_reviews"] = "No reviews have been recorded for this product"
 
         if instance.has_discount == False:
-            representation.pop('has_discount', None)
             representation.pop('discount_amount', None)
             representation.pop('discounted_price', None)
 
@@ -122,6 +112,7 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
             representation['size'] = instance.variable.title
         else:
             representation['color'] = instance.variable.title
+            representation['color_code'] = instance.variable.color_code
 
         return {key: val for key, val in representation.items() if val is not None}
 
@@ -460,6 +451,7 @@ class AddProductReviewSerializer(serializers.ModelSerializer):
         return review
 
 
+# checked
 class WishlistItemSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
     class Meta:
@@ -467,6 +459,7 @@ class WishlistItemSerializer(serializers.ModelSerializer):
         fields = ["id", "product", ]
 
 
+# checked
 class WishlistSerializer(serializers.ModelSerializer):
     items = WishlistItemSerializer(many=True)
     class Meta:
@@ -474,6 +467,7 @@ class WishlistSerializer(serializers.ModelSerializer):
         fields = ["id", "items", ]
 
 
+# checked
 class WishlistCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wishlist
@@ -492,6 +486,7 @@ class WishlistCreateSerializer(serializers.ModelSerializer):
         return wish_list
 
 
+# checked
 class AddWishlistItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = WishlistItem

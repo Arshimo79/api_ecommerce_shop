@@ -1,5 +1,8 @@
 from django.db import models
-from django.db.models import OuterRef, Subquery, Value, Case, When, BooleanField, FloatField, Count, Avg, DecimalField, IntegerField
+from django.db.models import (
+    OuterRef, Subquery, Count, Avg, Value, Case, When,
+    IntegerField, FloatField, BooleanField
+)
 from django.db.models.functions import Coalesce, Cast
 
 
@@ -21,28 +24,29 @@ class ProductQuerySet(models.QuerySet):
         ).order_by('price')
 
         return self.annotate(
-            number_of_reviews=Count('reviews'), 
+            annotated_number_of_reviews=Count('reviews'),
 
-            rates_average=Avg(
-                    Cast('reviews__review_rating', 
-                    FloatField())
-                ),
-
-            price=Coalesce(
-                Subquery(discounted_attrs.values('price')[:1]),
-                Subquery(normal_attrs.values('price')[:1]),
+            annotated_rates_average=Avg(
+                Cast('reviews__review_rating', FloatField())
             ),
 
-            discounted_price=Subquery(discounted_attrs.values('discounted_price')[:1]),
+            annotated_price=Coalesce(
+                Subquery(discounted_attrs.values('price')[:1]),
+                Subquery(normal_attrs.values('price')[:1])
+            ),
 
-            discount_amount=Coalesce(
+            annotated_discounted_price=Subquery(
+                discounted_attrs.values('discounted_price')[:1]
+            ),
+
+            annotated_discount_amount=Coalesce(
                 Subquery(discounted_attrs.values('discount_amount')[:1]),
                 Value(0.00),
                 output_field=IntegerField()
             ),
 
-            has_discount=Case(
-                When(discounted_price__isnull=False, then=Value(True)),
+            annotated_has_discount=Case(
+                When(annotated_discounted_price__isnull=False, then=Value(True)),
                 default=Value(False),
                 output_field=BooleanField()
             )
@@ -52,6 +56,6 @@ class ProductQuerySet(models.QuerySet):
 class ProductManager(models.Manager):
     def get_queryset(self):
         return ProductQuerySet(self.model, using=self._db)
-    
+
     def custom_query(self):
         return self.get_queryset().custom_query()
