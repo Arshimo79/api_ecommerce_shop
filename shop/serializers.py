@@ -42,6 +42,9 @@ class ProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
 
+        if instance.price == None:
+            representation["price"] = "This product is not in stock"
+
         if instance.rates_average == None:
             representation.pop("rates_average", None)
             representation["number_of_reviews"] = "No reviews have been recorded for this product"
@@ -139,6 +142,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+
+        if instance.default_attribute() == None:
+            representation.pop("default_attribute", None)
 
         if instance.rates_average == None:
             representation.pop("rates_average", None)

@@ -201,6 +201,7 @@ class ProductAdmin(admin.ModelAdmin):
                      "num_of_comments",
                      "num_of_reviews",
                      "stock_quantity", 
+                     "in_stock",
                      "total_sold", ]
 
     list_filter   = ['datetime_created', ]

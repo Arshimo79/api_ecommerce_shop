@@ -1,4 +1,3 @@
-from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import CreateModelMixin, RetrieveModelMixin, DestroyModelMixin
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,6 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Prefetch
 from django.http import Http404
 
+from .filters import InStockOrderingFilter
 from .filters import ProductsFilter
 from .paginations import CustomPagination
 from .permissions import IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly
@@ -50,7 +50,7 @@ from .serializers import\
 class ProductViewSet(ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
-    filter_backends  = [DjangoFilterBackend, OrderingFilter] 
+    filter_backends  = [DjangoFilterBackend, InStockOrderingFilter, ] 
     filterset_class  = ProductsFilter
     ordering_fields  = ['price', 'title', 'datetime_created', ]
     lookup_field = 'slug'
@@ -58,8 +58,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = Product.objects\
             .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
-            .order_by("-datetime_created")\
-            .filter(in_stock=True)\
+            .order_by("-datetime_created", "-in_stock")\
             .all()\
 
         category_slug = self.kwargs.get('category__slug')

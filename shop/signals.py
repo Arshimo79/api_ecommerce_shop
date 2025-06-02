@@ -22,14 +22,6 @@ def update_cart_items(sender, instance, **kwargs):
     """
     cart_items = CartItem.objects.filter(product=instance)
     product = ProductAttribute.objects.get(id=instance.id)
-    if product.discount_active:
-        for cart_item in cart_items:
-            cart_item.price = product.discounted_price
-            cart_item.save()
-    else:
-        for cart_item in cart_items:
-            cart_item.price = product.price
-            cart_item.save()
 
     for cart_item in cart_items:
         if product.quantity == 0:

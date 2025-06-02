@@ -94,16 +94,14 @@ class Product(models.Model):
         ).order_by('discounted_price')
 
         if discounted_attrs.exists():
-            return discounted_attrs.first()
+            return discounted_attrs.first() or None
 
         regular_attrs = self.attributes.filter(
             quantity__gt=0
         ).order_by('price')
 
         if regular_attrs.exists():
-            return regular_attrs.first()
-
-        raise NotFound(f"product not found.")
+            return regular_attrs.first() or None
 
     def stock_quantity(self):
         return sum([item.quantity for item in self.attributes.all()])
