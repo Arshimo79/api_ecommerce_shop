@@ -114,6 +114,12 @@ class OrderPaidStatusFilter(admin.SimpleListFilter):
             return queryset.filter(is_paid=False)
 
 
+class ImageInLine(admin.TabularInline):
+    model  = Image
+    fields = ["image", "title", ]
+    extra  = 1
+
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display  = ['id', 'title', 'num_of_products', ]
@@ -206,6 +212,7 @@ class ProductAdmin(admin.ModelAdmin):
 
     list_filter   = ['datetime_created', ]
     search_fields = ['title', ]
+    inlines       = [ImageInLine, ]
     form          = ProductAdminForm
     list_per_page = 20
 
@@ -282,6 +289,13 @@ class ProductAttributeAdmin(admin.ModelAdmin):
     list_filter         = ['datetime_created', DiscountActiveFilter, QuantityFilter, ]
     autocomplete_fields = ["product", ]
     list_editable = ["price", "quantity", ]
+
+
+@admin.register(Image)
+class ImageAdmin(admin.ModelAdmin):
+    list_display = ["id", "product", "image", "title", "datetime_created", "datetime_modified", ]
+    list_select_related = ["product", ]
+    search_fields = ["title", ]
 
 
 @admin.register(Comment)
