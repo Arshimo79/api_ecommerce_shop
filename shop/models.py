@@ -1,5 +1,3 @@
-from .managers import ProductManager
-
 from core.models import CustomUser
 
 from django.conf import settings
@@ -84,47 +82,37 @@ class Product(models.Model):
     def variables(self):
         return self.attributes.values_list('variable__title', flat=True).distinct() or None
 
-    def default_attribute(self):
-        discounted_attrs = self.attributes.filter(
-            discount_active=True,
-            discounted_price__isnull=False,
-            quantity__gt=0
-        ).order_by('discounted_price')
+    def default_attribute(self, attributes=None):
+        attrs = attributes or self.attributes.all()
 
-        if discounted_attrs.exists():
-            return discounted_attrs.first() or None
+        discounted_attrs = [a for a in attrs if (a.discount_active and a.discounted_price is not None) and (a.quantity > 0)]
+        if discounted_attrs:
+            return sorted(discounted_attrs, key=lambda a: a.discounted_price)[0]
 
-        regular_attrs = self.attributes.filter(
-            quantity__gt=0
-        ).order_by('price')
+        regular_attrs = [a for a in attrs if a.quantity > 0]
+        if regular_attrs:
+            return sorted(regular_attrs, key=lambda a: a.price)[0]
 
-        if regular_attrs.exists():
-            return regular_attrs.first() or None
+        return None
 
-    def stock_quantity(self):
-        return sum([item.quantity for item in self.attributes.all()])
-    
-    def calculate_total_sold(self):
-        self.total_sold = sum([item.total_sold for item in self.attributes.all()])
+    def stock_quantity(self, attributes=None):
+        attrs = attributes or self.attributes.all()
+        return sum(item.quantity for item in attrs)
 
-    def update_dynamic_fields(self):
+    def calculate_total_sold(self, attributes=None):
+        attrs = attributes or self.attributes.all()
+        self.total_sold = sum(item.total_sold for item in attrs)
+
+    def update_dynamic_fields(self, attributes=None):
         from .models import ProductAttribute
 
-        discounted_attrs = ProductAttribute.objects.filter(
-            product=self,
-            quantity__gt=0,
-            discount_active=True,
-            discounted_price__isnull=False
-        ).order_by('discounted_price')
+        attrs = attributes or list(self.attributes.all())
 
-        normal_attrs = ProductAttribute.objects.filter(
-            product=self,
-            quantity__gt=0,
-            discount_active=False
-        ).order_by('price')
+        discounted_attrs = [a for a in attrs if (a.discount_active and a.discounted_price is not None) and (a.quantity > 0)]
+        normal_attrs = [a for a in attrs if not (a.discount_active and a.discounted_price) and (a.quantity > 0)]
 
-        discounted = discounted_attrs.first()
-        normal = normal_attrs.first()
+        discounted = sorted(discounted_attrs, key=lambda a: a.discounted_price)[0] if discounted_attrs else None
+        normal = sorted(normal_attrs, key=lambda a: a.price)[0] if normal_attrs else None
 
         self.price = int(discounted.price) if discounted else int(normal.price) if normal else None
         self.discounted_price = int(discounted.discounted_price) if discounted else None
@@ -136,35 +124,28 @@ class Product(models.Model):
         self.rates_average = reviews.aggregate(avg=Avg('review_rating'))['avg']
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
+        super().save(*args, **kwargs)
 
-        if is_new:
-            super().save(*args, **kwargs)
+        attributes = list(self.attributes.all())
 
-            self.update_dynamic_fields()
-            self.calculate_total_sold()
+        self.update_dynamic_fields(attributes=attributes)
+        self.calculate_total_sold(attributes=attributes)
 
-            self.__class__.objects.filter(pk=self.pk).update(
-                price=self.price,
-                discounted_price=self.discounted_price,
-                discount_amount=self.discount_amount,
-                has_discount=self.has_discount,
-                number_of_reviews=self.number_of_reviews,
-                rates_average=self.rates_average,
-                total_sold=self.total_sold
-            )
-        else:
-            self.update_dynamic_fields()
-            self.calculate_total_sold()
-            super().save(*args, **kwargs)
+        self.__class__.objects.filter(pk=self.pk).update(
+            price=self.price,
+            discounted_price=self.discounted_price,
+            discount_amount=self.discount_amount,
+            has_discount=self.has_discount,
+            number_of_reviews=self.number_of_reviews,
+            rates_average=self.rates_average,
+            total_sold=self.total_sold
+        )
 
     class Meta:
-        verbose_name_plural='5. Products'
+        verbose_name_plural = '5. Products'
 
     def __str__(self):
         return f"{self.title}"
-    
-    objects = ProductManager()
 
 
 class ProductAttribute(models.Model):

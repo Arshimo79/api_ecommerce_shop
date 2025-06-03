@@ -52,7 +52,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
     pagination_class = CustomPagination
     filter_backends  = [DjangoFilterBackend, InStockOrderingFilter, ] 
     filterset_class  = ProductsFilter
-    ordering_fields  = ['price', 'title', 'datetime_created', ]
+    ordering_fields  = ['price', 'title', 'datetime_created', 'total_sold', ]
     lookup_field = 'slug'
 
     def get_queryset(self):
