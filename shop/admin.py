@@ -116,7 +116,7 @@ class OrderPaidStatusFilter(admin.SimpleListFilter):
 
 class ImageInLine(admin.TabularInline):
     model  = Image
-    fields = ["image", "title", ]
+    fields = ["image", "title", "is_main", ]
     extra  = 1
 
 
@@ -195,6 +195,7 @@ class ProductAdminForm(forms.ModelForm):
 class ProductAdmin(admin.ModelAdmin):
     list_display  = ["id", 
                      "title",
+                     "image",
                      "category",
                      "product_subcategory",
                      "price",
@@ -293,7 +294,7 @@ class ProductAttributeAdmin(admin.ModelAdmin):
 
 @admin.register(Image)
 class ImageAdmin(admin.ModelAdmin):
-    list_display = ["id", "product", "image", "title", "datetime_created", "datetime_modified", ]
+    list_display = ["id", "product", "image", "title", "is_main", "datetime_created", "datetime_modified", ]
     list_select_related = ["product", ]
     search_fields = ["title", ]
 

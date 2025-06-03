@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import ProductAttribute, CartItem
+from .models import ProductAttribute, CartItem, Image
 
 
 @receiver(post_save, sender=ProductAttribute)
@@ -14,6 +14,11 @@ def update_product_stock(sender, instance, **kwargs):
         product.in_stock = True
 
     product.save()
+
+@receiver(post_save, sender=Image)
+def update_product_image(sender, instance, **kwargs):
+    product = instance.product
+    product.main_image()
 
 @receiver(post_save, sender=ProductAttribute)
 def update_cart_items(sender, instance, **kwargs):

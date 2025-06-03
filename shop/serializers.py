@@ -17,7 +17,8 @@ from .models import Product,\
     Address,\
     ShippingMethod,\
     Wishlist,\
-    WishlistItem
+    WishlistItem,\
+    Image
 
 
 # checked
@@ -29,7 +30,8 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 
                   'slug', 
-                  'title', 
+                  'title',
+                  'image',
                   'description', 
                   'price', 
                   'discounted_price', 
@@ -120,15 +122,26 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
         return {key: val for key, val in representation.items() if val is not None}
 
 
+class ImageInProductDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Image
+        fields = ["id", "image", ]
+
+
 # checked
 class ProductDetailSerializer(serializers.ModelSerializer):
+    main_image = serializers.SerializerMethodField()
+    images = ImageInProductDetailSerializer(many=True)
     attributes = ProductAttributeInProductDetailSerializer(many=True)
     rates_average = serializers.SerializerMethodField()
     number_of_reviews = serializers.SerializerMethodField()
     default_attribute = serializers.SerializerMethodField()
     class Meta:
         model = Product
-        fields = ['id', 'title', 'description', 'in_stock', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
+        fields = ['id', 'title', 'description', 'in_stock', 'main_image', 'images', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
+
+    def get_main_image(self, obj:Product):
+        return obj.image.url
 
     def get_rates_average(self, obj:Product):
         return obj.rates_average
@@ -165,36 +178,6 @@ class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
         fields = ['id', 'slug', 'title', 'category', ]
-
-
-# checked
-class CartProductSerializer(serializers.ModelSerializer):
-    price = serializers.IntegerField()
-    discounted_price = serializers.SerializerMethodField()
-    discount_amount = serializers.SerializerMethodField()
-    class Meta:
-        model = ProductAttribute
-        fields = ['id', 'title', 'price', 'discounted_price', 'discount_amount', ]
-    
-    def get_discounted_price(self, obj):
-        return int(obj.discounted_price) if obj.discount_active and obj.quantity > 0 else None
-
-    def get_discount_amount(self, obj):
-        return int(obj.discount_amount) if obj.discount_active and obj.quantity > 0 else None
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-
-        if instance.discount_active == False:
-            representation.pop('discounted_price', None)
-            representation.pop('discount_amount', None)
-
-        if instance.variable.variable_type == 'size':
-            representation['size'] = instance.variable.title
-        else:
-            representation['color'] = instance.variable.title
-
-        return {key: val for key, val in representation.items() if val is not None}
 
 
 # checked
@@ -256,6 +239,43 @@ class AddCartItemSerializer(serializers.Serializer):
 
         self.instance = cart_item
         return cart_item
+
+
+# checked
+class CartProductSerializer(serializers.ModelSerializer):
+    price = serializers.IntegerField()
+    image = serializers.SerializerMethodField()
+    discounted_price = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
+    class Meta:
+        model = ProductAttribute
+        fields = ['id', 'title', 'image', 'price', 'discounted_price', 'discount_amount', ]
+    
+    def get_image(self, obj:ProductAttribute):
+        product = obj.product
+        if product.image:
+            return product.image.url
+        return None
+
+    def get_discounted_price(self, obj):
+        return int(obj.discounted_price) if obj.discount_active and obj.quantity > 0 else None
+
+    def get_discount_amount(self, obj):
+        return int(obj.discount_amount) if obj.discount_active and obj.quantity > 0 else None
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        if instance.discount_active == False:
+            representation.pop('discounted_price', None)
+            representation.pop('discount_amount', None)
+
+        if instance.variable.variable_type == 'size':
+            representation['size'] = instance.variable.title
+        else:
+            representation['color'] = instance.variable.title
+
+        return {key: val for key, val in representation.items() if val is not None}
 
 
 # checked
@@ -334,9 +354,16 @@ class AddressSerializer(serializers.ModelSerializer):
 
 # checked
 class OrderItemProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
     class Meta:
         model = ProductAttribute
-        fields = ['id', 'title', ]
+        fields = ['id', 'title', 'image', ]
+
+    def get_image(self, obj:ProductAttribute):
+        product = obj.product
+        if product.image:
+            return product.image.url
+        return None
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

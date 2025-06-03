@@ -66,6 +66,7 @@ class Product(models.Model):
     title = models.CharField(max_length=300)
     description = models.TextField()
     slug = models.CharField(max_length=400, unique=True)
+    image = models.ImageField(upload_to='product_images/main/', blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
     subcategory = models.ForeignKey(SubCategory, on_delete=models.PROTECT, related_name='products')
     price = models.DecimalField(max_digits=9, decimal_places=0, null=True, blank=True)
@@ -78,6 +79,17 @@ class Product(models.Model):
     total_sold = models.PositiveIntegerField(default=0)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
+
+    def main_image(self):
+        main = self.images.filter(is_main=True).first()
+        fallback = self.images.first()
+        selected = main or fallback
+
+        if selected and selected.image:
+            self.image = selected.image
+            self.save(update_fields=['image'])
+ 
+        return None
 
     def variables(self):
         return self.attributes.values_list('variable__title', flat=True).distinct() or None
@@ -190,6 +202,7 @@ class Image(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
     image = models.ImageField(upload_to='product_images/')
     title = models.CharField(max_length=250, blank=True, null=True)
+    is_main = models.BooleanField(default=False)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 

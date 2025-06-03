@@ -151,7 +151,7 @@ class AddressViewSet(ModelViewSet):
 class CartViewSet(CreateModelMixin, DestroyModelMixin, RetrieveModelMixin, GenericViewSet):
     queryset = Cart.objects.prefetch_related(Prefetch(
         "items",
-        queryset = CartItem.objects.select_related('product__variable').all()))\
+        queryset = CartItem.objects.select_related('product__variable', 'product__product').all()))\
         .all()
     serializer_class = CartSerializer
 
@@ -165,7 +165,7 @@ class CartItemViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'options', 'head', ]
 
     def get_queryset(self):
-        queryset = CartItem.objects.select_related('product__variable').all()
+        queryset = CartItem.objects.select_related('product__variable', 'product__product').all()
         cart_pk = self.kwargs['cart_pk']
         return queryset.filter(cart_id=cart_pk)
 
@@ -188,7 +188,7 @@ class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        queryset = Order.objects.prefetch_related(Prefetch("items", OrderItem.objects.select_related("product__variable").all())).all()
+        queryset = Order.objects.prefetch_related(Prefetch("items", OrderItem.objects.select_related("product__variable", "product__product").all())).all()
         user_id = self.request.user.id
         return queryset.filter(user_id=user_id)
 
@@ -202,7 +202,7 @@ class OrderItemViewSet(ModelViewSet):
     def get_queryset(self):
         order_pk = self.kwargs["order_pk"]
         user_id = self.request.user.id
-        return OrderItem.objects.select_related("product__variable").filter(order_id=order_pk, order__user_id=user_id).all()
+        return OrderItem.objects.select_related("product__variable", "product__product").filter(order_id=order_pk, order__user_id=user_id).all()
 
 
 # checked
