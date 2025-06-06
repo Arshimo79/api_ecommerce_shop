@@ -67,8 +67,8 @@ class Product(models.Model):
     description = models.TextField()
     slug = models.CharField(max_length=400, unique=True)
     image = models.ImageField(upload_to='product_images/main/', blank=True, null=True)
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products')
-    subcategory = models.ForeignKey(SubCategory, on_delete=models.PROTECT, related_name='products')
+    category = models.ForeignKey('Category', on_delete=models.PROTECT, related_name='products')
+    subcategory = models.ForeignKey('SubCategory', on_delete=models.PROTECT, related_name='products')
     price = models.DecimalField(max_digits=9, decimal_places=0, null=True, blank=True)
     discounted_price = models.DecimalField(max_digits=9, decimal_places=0, null=True, blank=True)
     discount_amount = models.DecimalField(max_digits=3, decimal_places=0, null=True, blank=True)
@@ -77,30 +77,32 @@ class Product(models.Model):
     number_of_reviews = models.IntegerField(null=True, blank=True)
     in_stock = models.BooleanField(default=True)
     total_sold = models.PositiveIntegerField(default=0)
+    stock_quantity = models.PositiveIntegerField(default=0)
     datetime_created = models.DateTimeField(auto_now_add=True)
     datetime_modified = models.DateTimeField(auto_now=True)
 
     def main_image(self):
         """Returns the main image URL or None if no image exists."""
         if not hasattr(self, '_main_image'):
-            main = self.images.filter(is_main=True).first()
-            fallback = self.images.first()
+            main = self.images.filter(is_main=True).only('image').first()
+            fallback = self.images.only('image').first()
             selected = main or fallback
 
             if selected and selected.image:
                 self._main_image = selected.image
-                # Use update() to avoid triggering save()
                 self.__class__.objects.filter(pk=self.pk).update(image=selected.image)
             else:
                 self._main_image = None
 
         return self._main_image
 
-    def stock_quantity(self, attributes=None):
-        """Returns total stock quantity for the product."""
+    def calculate_stock_quantity(self, attributes=None):
+        """Returns total stock quantity for the product and sets in_stock."""
         if attributes is None:
             attributes = self.attributes.all()
-        return attributes.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        total_quantity = attributes.aggregate(total_quantity=Sum('quantity'))['total_quantity']
+        self.stock_quantity = total_quantity or 0
+        self.in_stock = total_quantity > 0
 
     def calculate_total_sold(self, attributes=None):
         """Calculates total sold items for the product."""
@@ -113,30 +115,25 @@ class Product(models.Model):
         if attributes is None:
             attributes = self.attributes.all()
 
-        # Get all required data in a single query
         discounted_attr = attributes.filter(
             quantity__gt=0,
             discount_active=True,
             discount_amount__isnull=False,
             discounted_price__isnull=False
-        ).order_by('discounted_price').first()
+        ).order_by('discounted_price').only('price', 'discounted_price', 'discount_amount').first()
 
-        # Get review stats in a single query
         review_stats = self.reviews.aggregate(
             count=Count('id'),
             avg_rating=Avg('review_rating')
         )
 
-        # Update fields
         if discounted_attr:
             self.price = discounted_attr.price
             self.discounted_price = discounted_attr.discounted_price
             self.discount_amount = discounted_attr.discount_amount
             self.has_discount = True
         else:
-            min_regular_price = attributes.filter(quantity__gt=0).aggregate(
-                min_price=Min('price')
-            )
+            min_regular_price = attributes.filter(quantity__gt=0).aggregate(min_price=Min('price'))
             self.price = min_regular_price['min_price'] if min_regular_price['min_price'] is not None else None
             self.discounted_price = None
             self.discount_amount = None
@@ -144,30 +141,6 @@ class Product(models.Model):
 
         self.number_of_reviews = review_stats['count']
         self.rates_average = review_stats['avg_rating']
-
-    def save(self, *args, **kwargs):
-        """Overrides save to update dynamic fields."""
-        super().save(*args, **kwargs)
-
-        # Get attributes once
-        attributes = self.attributes.all()
-
-        # Update all dynamic fields
-        self.update_dynamic_fields(attributes=attributes)
-        self.calculate_total_sold(attributes=attributes)
-
-        # Use update() to avoid triggering save() again
-        update_fields = {
-            'price': self.price,
-            'discounted_price': self.discounted_price,
-            'discount_amount': self.discount_amount,
-            'has_discount': self.has_discount,
-            'number_of_reviews': self.number_of_reviews,
-            'rates_average': self.rates_average,
-            'total_sold': self.total_sold
-        }
-        
-        self.__class__.objects.filter(pk=self.pk).update(**update_fields)
 
     class Meta:
         verbose_name_plural = '5. Products'

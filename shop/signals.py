@@ -3,17 +3,27 @@ from django.dispatch import receiver
 
 from .models import ProductAttribute, CartItem, Image
 
+@receiver([post_save, post_delete], sender=ProductAttribute)
+def update_product_dynamic_fields(sender, instance, **kwargs):
+    product = instance.product  # Adjust this if your FK is named differently
 
-@receiver(post_save, sender=ProductAttribute)
-def update_product_stock(sender, instance, **kwargs):
-    product = instance.product
+    attributes = product.attributes.all()
+    product.update_dynamic_fields(attributes=attributes)
+    product.calculate_total_sold(attributes=attributes)
+    product.calculate_stock_quantity(attributes=attributes)
 
-    if product.stock_quantity() == 0:
-        product.in_stock = False
-    else:
-        product.in_stock = True
-
-    product.save()
+    # Use update to avoid triggering save()
+    product.__class__.objects.filter(pk=product.pk).update(
+        price=product.price,
+        discounted_price=product.discounted_price,
+        discount_amount=product.discount_amount,
+        has_discount=product.has_discount,
+        number_of_reviews=product.number_of_reviews,
+        rates_average=product.rates_average,
+        total_sold=product.total_sold,
+        in_stock=product.in_stock,
+        stock_quantity=product.stock_quantity,
+    )
 
 @receiver([post_save, post_delete], sender=Image)
 def update_product_main_image(sender, instance, **kwargs):
