@@ -136,6 +136,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     rates_average = serializers.SerializerMethodField()
     number_of_reviews = serializers.SerializerMethodField()
     default_attribute = serializers.SerializerMethodField()
+    
     class Meta:
         model = Product
         fields = ['id', 'title', 'description', 'in_stock', 'main_image', 'images', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
@@ -150,14 +151,29 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         return obj.number_of_reviews
     
     def get_default_attribute(self, obj):
-        default_attribute = obj.default_attribute()
-        return ProductAttributeInProductDetailSerializer(default_attribute).data
+        # First try to get discounted attributes with stock
+        discounted_attr = obj.attributes.filter(
+            quantity__gt=0,
+            discount_active=True,
+            discount_amount__isnull=False,
+            discounted_price__isnull=False
+        ).order_by('discounted_price').first()
+        
+        if discounted_attr:
+            return ProductAttributeInProductDetailSerializer(discounted_attr).data
+            
+        # If no discounted attributes, get regular attributes with stock
+        regular_attr = obj.attributes.filter(
+            quantity__gt=0
+        ).order_by('price').first()
+        
+        if regular_attr:
+            return ProductAttributeInProductDetailSerializer(regular_attr).data
+            
+        return None
     
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-
-        if instance.default_attribute() == None:
-            representation.pop("default_attribute", None)
 
         if instance.rates_average == None:
             representation.pop("rates_average", None)

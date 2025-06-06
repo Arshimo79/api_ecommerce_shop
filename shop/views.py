@@ -57,7 +57,7 @@ class ProductViewSet(ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = Product.objects\
-            .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()))\
+            .prefetch_related(Prefetch("attributes", queryset=ProductAttribute.objects.select_related("discount").all()), "images")\
             .order_by("-datetime_created", "-in_stock")\
             .all()\
 
@@ -82,7 +82,8 @@ class ProductViewSet(ReadOnlyModelViewSet):
         try:
             return Product.objects.select_related("category", "subcategory", )\
                 .prefetch_related(Prefetch("comments", queryset=Comment.objects.select_related("user")), 
-                                  Prefetch("attributes", queryset=ProductAttribute.objects.select_related("variable")))\
+                                  Prefetch("attributes", queryset=ProductAttribute.objects.select_related("variable")),
+                                  "images")\
                 .get(slug=slug)
         except Product.DoesNotExist:
             raise Http404("Product not found.")
