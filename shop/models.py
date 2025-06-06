@@ -82,30 +82,38 @@ class Product(models.Model):
 
     def main_image(self):
         """Returns the main image URL or None if no image exists."""
-        main = self.images.filter(is_main=True).first()
-        fallback = self.images.first()
-        selected = main or fallback
+        if not hasattr(self, '_main_image'):
+            main = self.images.filter(is_main=True).first()
+            fallback = self.images.first()
+            selected = main or fallback
 
-        if selected and selected.image:
-            self.image = selected.image
-            self.save(update_fields=['image'])
- 
-        return None
+            if selected and selected.image:
+                self._main_image = selected.image
+                # Use update() to avoid triggering save()
+                self.__class__.objects.filter(pk=self.pk).update(image=selected.image)
+            else:
+                self._main_image = None
+
+        return self._main_image
 
     def stock_quantity(self, attributes=None):
-        attributes = attributes or self.attributes.all()
         """Returns total stock quantity for the product."""
+        if attributes is None:
+            attributes = self.attributes.all()
         return attributes.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
 
     def calculate_total_sold(self, attributes=None):
-        attributes = attributes or self.attributes.all()
         """Calculates total sold items for the product."""
+        if attributes is None:
+            attributes = self.attributes.all()
         self.total_sold = attributes.aggregate(total_sold=Sum('total_sold'))['total_sold'] or 0
 
     def update_dynamic_fields(self, attributes=None):
         """Updates dynamic fields like price, discount, and review statistics."""
-        attributes = attributes or self.attributes.all()
+        if attributes is None:
+            attributes = self.attributes.all()
 
+        # Get all required data in a single query
         discounted_attr = attributes.filter(
             quantity__gt=0,
             discount_active=True,
@@ -113,6 +121,13 @@ class Product(models.Model):
             discounted_price__isnull=False
         ).order_by('discounted_price').first()
 
+        # Get review stats in a single query
+        review_stats = self.reviews.aggregate(
+            count=Count('id'),
+            avg_rating=Avg('review_rating')
+        )
+
+        # Update fields
         if discounted_attr:
             self.price = discounted_attr.price
             self.discounted_price = discounted_attr.discounted_price
@@ -127,10 +142,6 @@ class Product(models.Model):
             self.discount_amount = None
             self.has_discount = False
 
-        review_stats = self.reviews.aggregate(
-            count=Count('id'),
-            avg_rating=Avg('review_rating')
-        )
         self.number_of_reviews = review_stats['count']
         self.rates_average = review_stats['avg_rating']
 
@@ -138,21 +149,25 @@ class Product(models.Model):
         """Overrides save to update dynamic fields."""
         super().save(*args, **kwargs)
 
+        # Get attributes once
         attributes = self.attributes.all()
 
+        # Update all dynamic fields
         self.update_dynamic_fields(attributes=attributes)
         self.calculate_total_sold(attributes=attributes)
 
         # Use update() to avoid triggering save() again
-        self.__class__.objects.filter(pk=self.pk).update(
-            price=self.price,
-            discounted_price=self.discounted_price,
-            discount_amount=self.discount_amount,
-            has_discount=self.has_discount,
-            number_of_reviews=self.number_of_reviews,
-            rates_average=self.rates_average,
-            total_sold=self.total_sold
-        )
+        update_fields = {
+            'price': self.price,
+            'discounted_price': self.discounted_price,
+            'discount_amount': self.discount_amount,
+            'has_discount': self.has_discount,
+            'number_of_reviews': self.number_of_reviews,
+            'rates_average': self.rates_average,
+            'total_sold': self.total_sold
+        }
+        
+        self.__class__.objects.filter(pk=self.pk).update(**update_fields)
 
     class Meta:
         verbose_name_plural = '5. Products'

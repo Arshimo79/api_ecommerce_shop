@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
 from .models import ProductAttribute, CartItem, Image
@@ -15,9 +15,14 @@ def update_product_stock(sender, instance, **kwargs):
 
     product.save()
 
-@receiver(post_save, sender=Image)
-def update_product_image(sender, instance, **kwargs):
+@receiver([post_save, post_delete], sender=Image)
+def update_product_main_image(sender, instance, **kwargs):
+    """Signal to update product's main image when Image objects change."""
     product = instance.product
+    # Clear the cached main image
+    if hasattr(product, '_main_image'):
+        delattr(product, '_main_image')
+    # Trigger main_image update
     product.main_image()
 
 @receiver(post_save, sender=ProductAttribute)
