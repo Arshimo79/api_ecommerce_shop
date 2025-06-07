@@ -404,7 +404,7 @@ class OrderItem(models.Model):
             return None
 
         discount_value = (self.price) * (self.discount / 100)
-        return self.price - discount_value
+        return int(self.price - discount_value)
 
     def save(self, *args, **kwargs):
         self.title = self.product.title

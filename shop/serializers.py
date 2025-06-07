@@ -408,7 +408,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         if instance.discount_active:
-            representation['discounted_price'] = instance.discounted_price
+            representation['discounted_price'] = int(instance.discounted_price)
             representation['discount'] = instance.discount
 
         return {key: val for key, val in representation.items() if val is not None}
