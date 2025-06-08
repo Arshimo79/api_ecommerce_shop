@@ -41,14 +41,22 @@ def update_cart_items(sender, instance, **kwargs):
     Update the CartItem instances when a Product is saved.
     """
     cart_items = CartItem.objects.filter(product=instance)
-    product = ProductAttribute.objects.get(id=instance.id)
+
+    if instance.quantity == 0:
+        cart_items.delete()
+
+    items_to_update = []
 
     for cart_item in cart_items:
-        if product.quantity == 0:
-            cart_item.delete()
-        elif product.quantity < cart_item.quantity:
-            cart_item.quantity = product.quantity
-            cart_item.save()
+        if instance.quantity < cart_item.quantity:
+            cart_item.quantity = instance.quantity
+            items_to_update.append(cart_item)
+
+    if items_to_update:
+        CartItem.objects.bulk_update(
+            items_to_update,
+            fields=["quantity", ]
+        )
 
 @receiver(post_save, sender=ProductAttribute)
 def update_order_items(sender, instance, **kwargs):

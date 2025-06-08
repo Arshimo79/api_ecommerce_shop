@@ -304,7 +304,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
     def get_item_total_price(self, obj: CartItem):
         if obj.product.discount_active:
-            return obj.product.discounted_price * obj.quantity
+            return int(obj.product.discounted_price * obj.quantity)
         return int(obj.product.price * obj.quantity)
 
 

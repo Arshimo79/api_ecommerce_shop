@@ -184,7 +184,7 @@ class ProductAttribute(models.Model):
         verbose_name_plural='6. ProductAttributes'
 
     def __str__(self):
-        return f"{self.title}({self.variable.title})"
+        return f"{self.title}"
 
 
 class Image(models.Model):
