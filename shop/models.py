@@ -363,7 +363,7 @@ class Order(models.Model):
         if self.shipping_price == None:
             return sum(calculate_item_prices)
         else:
-            return int(sum(calculate_item_prices) + self.shipping_method.price)
+            return int(sum(calculate_item_prices) + self.shipping_price)
 
     def save(self, *args, **kwargs):
         if not self.number:

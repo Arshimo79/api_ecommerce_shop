@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-from .models import ProductAttribute, CartItem, OrderItem, Image
+from .models import ProductAttribute, CartItem, Order, OrderItem, Image, ShippingMethod
 
 @receiver([post_save, post_delete], sender=ProductAttribute)
 def update_product_dynamic_fields(sender, instance, **kwargs):
@@ -106,4 +106,24 @@ def update_order_items(sender, instance, **kwargs):
         OrderItem.objects.bulk_update(
             items_to_update,
             fields=['quantity', 'price', 'discounted_price', 'discount', 'discount_active', ]
+        )
+
+@receiver(post_save, sender=ShippingMethod)
+def update_order_shipping_price_field(sender, instance, **kwargs):
+
+    orders = Order.objects.filter(
+        is_paid=False,
+        shipping_method=instance,
+    ).all()
+
+    orders_to_update = []
+
+    for order in orders:
+        order.shipping_price = instance.price
+        orders_to_update.append(order)
+
+    if orders_to_update:
+        Order.objects.bulk_update(
+            orders_to_update,
+            fields=["shipping_price", ]
         )
