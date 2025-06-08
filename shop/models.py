@@ -184,7 +184,7 @@ class ProductAttribute(models.Model):
         verbose_name_plural='6. ProductAttributes'
 
     def __str__(self):
-        return f"{self.title}"
+        return f"{self.title}({self.variable.title})"
 
 
 class Image(models.Model):
@@ -279,7 +279,7 @@ class ShippingMethod(models.Model):
     datetime_modified = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
-        return self.shipping_method
+        return f"{self.shipping_method}"
 
 
 class Address(models.Model):
@@ -334,8 +334,6 @@ class Order(models.Model):
     tracking_code = models.CharField(max_length=15, unique=True, blank=True, null=True)
     shipping_method = models.ForeignKey(ShippingMethod, on_delete=models.PROTECT, related_name="orders")
     shipping_price = models.DecimalField(max_digits=6, decimal_places=0, default=None, blank=True, null=True)
-    total_price = models.DecimalField(max_digits=9, decimal_places=0)
-    total_discount_amount = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
     datetime_modified = models.DateTimeField(auto_now=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
 
@@ -352,7 +350,11 @@ class Order(models.Model):
         calculate_item_prices = [item.calculate_discounted_price() * 
                                  item.quantity if (item.discount_active and item.discount) else item.price * item.quantity for item in self.items.all()]
 
-        return sum(calculate_item_prices)
+        return int(sum(calculate_item_prices))
+
+    def get_order_total_discount(self):
+        total_dsicount = sum([(item.price - item.discounted_price) * item.quantity for item in self.items.all() if item.discount_active])
+        return int(total_dsicount)
 
     def get_order_total_price(self):
         calculate_item_prices = [item.calculate_discounted_price() * 
@@ -361,13 +363,7 @@ class Order(models.Model):
         if self.shipping_price == None:
             return sum(calculate_item_prices)
         else:
-            return sum(calculate_item_prices) + self.shipping_method.price
-
-    def get_order_total_discount(self):
-        return sum(
-            (item.price - (item.calculate_discounted_price()) * item.quantity)
-            for item in self.items.all() if (item.discount_active and item.discount)
-        )
+            return int(sum(calculate_item_prices) + self.shipping_method.price)
 
     def save(self, *args, **kwargs):
         if not self.number:
@@ -381,7 +377,7 @@ class Order(models.Model):
         verbose_name_plural='Orders'
 
     def __str__(self):
-        return f"Order {self.id}"
+        return f"Order {self.id}: {self.receiver_name} {self.receiver_family}"
 
 
 class OrderItem(models.Model):

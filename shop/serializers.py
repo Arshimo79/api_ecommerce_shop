@@ -399,7 +399,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     item_total_price = serializers.SerializerMethodField()
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'quantity', 'price', 'item_total_price', ]
+        fields = ['id', 'product', 'quantity', 'price', 'item_total_price', 'discount_active', ]
 
     def get_item_total_price(self, obj):
         return int(obj.get_item_total_price())
@@ -424,10 +424,11 @@ class ShippingMethodInOrderSerializer(serializers.ModelSerializer):
 # checked
 class OrderSerializer(serializers.ModelSerializer):
     shipping_price = serializers.IntegerField()
-    total_price = serializers.IntegerField()
-    total_discount_amount = serializers.IntegerField()
     items = OrderItemSerializer(many=True)
     shipping_method = ShippingMethodInOrderSerializer()
+    total_price = serializers.SerializerMethodField()
+    total_discount_amount = serializers.SerializerMethodField()
+    total_products_price = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     class Meta:
         model = Order
@@ -445,12 +446,22 @@ class OrderSerializer(serializers.ModelSerializer):
                   'tracking_code',
                   'shipping_method',
                   'shipping_price',
-                  'items', 
-                  'total_price',
-                  'total_discount_amount', ]
+                  'items',
+                  'total_products_price',
+                  'total_discount_amount',
+                  'total_price', ]
 
     def get_status(self, obj):
         return obj.get_status_display()
+    
+    def get_total_products_price(self, obj):
+        return obj.get_products_total_price()
+
+    def get_total_price(self, obj):
+        return obj.get_order_total_price()
+    
+    def get_total_discount_amount(self, obj):
+        return obj.get_order_total_discount()
 
 
 # checked

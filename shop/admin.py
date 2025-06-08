@@ -407,6 +407,7 @@ class CartAdmin(admin.ModelAdmin):
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
     list_display = ['id', 'cart', 'product', "quantity", ]
+    list_editable = ['quantity', ]
 
     def get_queryset(self, request):
         return super().get_queryset(request)\
@@ -432,9 +433,8 @@ class OrderAdmin(admin.ModelAdmin):
                     "number",
                     "tracking_code",
                     "shipping_method",
-                    "shipping_price",
-                    "total_price",
-                    "total_discount_amount",
+                    "get_order_total_price",
+                    "get_order_total_discount",
                     "datetime_modified",
                     "datetime_created",
                     ]
@@ -460,4 +460,4 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ["id", "order", "product", "quantity", "variable", "get_item_total_price", ]
+    list_display = ["id", "order", "product", "price", "discounted_price", "quantity", "variable", "get_item_total_price", "discount_active", ]

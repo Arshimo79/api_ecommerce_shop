@@ -189,7 +189,9 @@ class OrderViewSet(ModelViewSet):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        queryset = Order.objects.prefetch_related(Prefetch("items", OrderItem.objects.select_related("product__variable", "product__product").all())).all()
+        queryset = Order.objects.select_related("shipping_method")\
+            .prefetch_related(Prefetch("items", OrderItem.objects.select_related("product__variable", "product__product").all()))\
+            .all()
         user_id = self.request.user.id
         return queryset.filter(user_id=user_id)
 

@@ -54,27 +54,48 @@ def update_cart_items(sender, instance, **kwargs):
 def update_order_items(sender, instance, **kwargs):
     """
     Update the OrderItem instances when a Product is saved.
+    Uses bulk operations for better performance.
     """
-    order_items = OrderItem.objects.filter(product=instance, order__is_paid=False)
-    product = ProductAttribute.objects.get(id=instance.id)
+    # Get all unpaid order items for this product in a single query
+    order_items = OrderItem.objects.filter(
+        product=instance,
+        order__is_paid=False
+    ).select_related('order')
 
-    for order_item in order_items:
-        if product.quantity == 0:
-            order_item.delete()
-        elif product.quantity < order_item.quantity:
-            order_item.quantity = product.quantity
-            order_item.save()
+    if not order_items.exists():
+        return
 
+    # Handle zero quantity case - delete all related order items
+    if instance.quantity == 0:
+        order_items.delete()
+        return
+
+    # Prepare bulk update data
+    items_to_update = []
+
+    # Update quantity
     for order_item in order_items:
-        if (product.discount_active==True) and (product.discount_amount):
-            order_item.price = product.price
-            order_item.discounted_price = product.discounted_price
-            order_item.discount = product.discount.discount
-            order_item.discount_active = True
-            order_item.save()
+        if instance.quantity < order_item.quantity:
+            order_item.quantity = instance.quantity
+            items_to_update.append(order_item)
         else:
-            order_item.price = product.price
+            items_to_update.append(order_item)
+
+    # Update prices and discounts for all items
+    for order_item in items_to_update:
+        order_item.price = instance.price
+        if instance.discount_active and instance.discount_amount:
+            order_item.discounted_price = instance.discounted_price
+            order_item.discount = instance.discount.discount
+            order_item.discount_active = True
+        else:
             order_item.discounted_price = None
             order_item.discount = None
             order_item.discount_active = False
-            order_item.save()
+
+    # Bulk update all modified items
+    if items_to_update:
+        OrderItem.objects.bulk_update(
+            items_to_update,
+            fields=['quantity', 'price', 'discounted_price', 'discount', 'discount_active', ]
+        )
