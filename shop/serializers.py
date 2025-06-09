@@ -388,6 +388,7 @@ class OrderItemProductSerializer(serializers.ModelSerializer):
             representation['size'] = instance.variable.title
         else:
             representation['color'] = instance.variable.title
+            representation['color_code'] = instance.variable.color_code
 
         return {key: val for key, val in representation.items() if val is not None}
 
@@ -424,11 +425,11 @@ class ShippingMethodInOrderSerializer(serializers.ModelSerializer):
 # checked
 class OrderSerializer(serializers.ModelSerializer):
     shipping_price = serializers.IntegerField()
+    products_total_price = serializers.IntegerField()
+    order_total_discount = serializers.IntegerField()
+    order_total_price = serializers.IntegerField()
     items = OrderItemSerializer(many=True)
     shipping_method = ShippingMethodInOrderSerializer()
-    total_price = serializers.SerializerMethodField()
-    total_discount_amount = serializers.SerializerMethodField()
-    total_products_price = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     class Meta:
         model = Order
@@ -447,21 +448,12 @@ class OrderSerializer(serializers.ModelSerializer):
                   'shipping_method',
                   'shipping_price',
                   'items',
-                  'total_products_price',
-                  'total_discount_amount',
-                  'total_price', ]
+                  'products_total_price',
+                  'order_total_discount',
+                  'order_total_price', ]
 
     def get_status(self, obj):
         return obj.get_status_display()
-    
-    def get_total_products_price(self, obj):
-        return obj.get_products_total_price()
-
-    def get_total_price(self, obj):
-        return obj.get_order_total_price()
-    
-    def get_total_discount_amount(self, obj):
-        return obj.get_order_total_discount()
 
 
 # checked

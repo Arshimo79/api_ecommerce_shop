@@ -101,7 +101,6 @@ def update_order_items(sender, instance, **kwargs):
             order_item.discount = None
             order_item.discount_active = False
 
-    # Bulk update all modified items
     if items_to_update:
         OrderItem.objects.bulk_update(
             items_to_update,
@@ -120,10 +119,62 @@ def update_order_shipping_price_field(sender, instance, **kwargs):
 
     for order in orders:
         order.shipping_price = instance.price
+        order.calculate_totals()
         orders_to_update.append(order)
 
     if orders_to_update:
         Order.objects.bulk_update(
             orders_to_update,
-            fields=["shipping_price", ]
+            fields=["shipping_price", "products_total_price", "order_total_discount", "order_total_price", ]
         )
+
+@receiver(post_save, sender=ProductAttribute)
+def update_order_totals(sender, instance, **kwargs):
+    """
+    Signal handler to update order totals when a ProductAttribute is updated.
+    Only updates unpaid orders.
+    """
+    # Get all unpaid orders that contain this product in a single query
+    orders = Order.objects.filter(
+        is_paid=False,
+        items__product=instance
+    ).prefetch_related('items').distinct()
+
+    if not orders.exists():
+        return
+
+    orders_to_update = []
+    for order in orders:
+        # Calculate totals using prefetched items
+        order.calculate_totals()
+        orders_to_update.append(order)
+
+    # Bulk update all orders at once
+    if orders_to_update:
+        Order.objects.bulk_update(
+            orders_to_update,
+            fields=["products_total_price", "order_total_discount", "order_total_price"]
+        )
+
+@receiver(post_save, sender=OrderItem)
+def update_order_when_order_item_save(sender, instance, **kwargs):
+    """
+    Signal handler to update order totals when an OrderItem is saved.
+    Uses bulk operations and optimized queries for better performance.
+    """
+    # Get the order with prefetched items to avoid additional queries
+    order = Order.objects.select_related(
+        'shipping_method'
+    ).prefetch_related(
+        'items__product'
+    ).get(pk=instance.order.pk)
+    
+    # Calculate totals
+    order.calculate_totals()
+    
+    # Update order fields directly in database
+    order.__class__.objects.filter(pk=order.pk).update(
+        products_total_price=order.products_total_price,
+        order_total_discount=order.order_total_discount,
+        order_total_price=order.order_total_price
+    )

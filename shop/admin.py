@@ -433,8 +433,9 @@ class OrderAdmin(admin.ModelAdmin):
                     "number",
                     "tracking_code",
                     "shipping_method",
-                    "get_order_total_price",
-                    "get_order_total_discount",
+                    "products_total_price",
+                    "order_total_discount",
+                    "order_total_price",
                     "datetime_modified",
                     "datetime_created",
                     ]
@@ -460,4 +461,13 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ["id", "order", "product", "price", "discounted_price", "quantity", "variable", "get_item_total_price", "discount_active", ]
+    list_display = ["id", 
+                    "order", 
+                    "product", 
+                    "price", 
+                    "discounted_price", 
+                    "quantity", 
+                    "variable", 
+                    "color_code", 
+                    "get_item_total_price", 
+                    "discount_active", ]

@@ -3,7 +3,7 @@ from core.models import CustomUser
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models import Avg, Min, Count, Sum
+from django.db.models import Avg, Min, Count, Sum, F, Case, When, Value, IntegerField
 
 from uuid import uuid4
 import uuid
@@ -334,6 +334,9 @@ class Order(models.Model):
     tracking_code = models.CharField(max_length=15, unique=True, blank=True, null=True)
     shipping_method = models.ForeignKey(ShippingMethod, on_delete=models.PROTECT, related_name="orders")
     shipping_price = models.DecimalField(max_digits=6, decimal_places=0, default=None, blank=True, null=True)
+    products_total_price = models.DecimalField(max_digits=9, decimal_places=0, default=0)
+    order_total_discount = models.DecimalField(max_digits=9, decimal_places=0, default=0)
+    order_total_price = models.DecimalField(max_digits=9, decimal_places=0, default=0)
     datetime_modified = models.DateTimeField(auto_now=True)
     datetime_created = models.DateTimeField(auto_now_add=True)
 
@@ -346,24 +349,41 @@ class Order(models.Model):
             if not Order.objects.filter(tracking_code=code).exists():
                 return code
 
-    def get_products_total_price(self):
-        calculate_item_prices = [item.calculate_discounted_price() * 
-                                 item.quantity if (item.discount_active and item.discount) else item.price * item.quantity for item in self.items.all()]
+    def calculate_totals(self):
+        """Calculate and update all total fields using database-level calculations"""
+        # Calculate products total price and total discount in a single query
+        totals = self.items.aggregate(
+            products_total=Sum(
+                Case(
+                    When(
+                        discount_active=True,
+                        discount__isnull=False,
+                        then=F('discounted_price') * F('quantity')
+                    ),
+                    default=F('price') * F('quantity'),
+                    output_field=IntegerField()
+                )
+            ),
+            total_discount=Sum(
+                Case(
+                    When(
+                        discount_active=True,
+                        then=(F('price') - F('discounted_price')) * F('quantity')
+                    ),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            )
+        )
 
-        return int(sum(calculate_item_prices))
-
-    def get_order_total_discount(self):
-        total_dsicount = sum([(item.price - item.discounted_price) * item.quantity for item in self.items.all() if item.discount_active])
-        return int(total_dsicount)
-
-    def get_order_total_price(self):
-        calculate_item_prices = [item.calculate_discounted_price() * 
-                                 item.quantity if (item.discount_active and item.discount) else item.price * item.quantity for item in self.items.all()]
+        self.products_total_price = totals['products_total'] or 0
+        self.order_total_discount = totals['total_discount'] or 0
         
-        if self.shipping_price == None:
-            return sum(calculate_item_prices)
+        # Calculate total price including shipping
+        if self.shipping_price is None:
+            self.order_total_price = self.products_total_price
         else:
-            return int(sum(calculate_item_prices) + self.shipping_price)
+            self.order_total_price = self.products_total_price + self.shipping_price
 
     def save(self, *args, **kwargs):
         if not self.number:
@@ -371,6 +391,7 @@ class Order(models.Model):
             self.number = self.generate_unique_order_number()
             self.save(update_fields=['number'])
         else:
+            self.calculate_totals()
             super().save(*args, **kwargs)
 
     class Meta:
@@ -385,6 +406,7 @@ class OrderItem(models.Model):
     product = models.ForeignKey(ProductAttribute, on_delete=models.PROTECT, related_name='order_items')
     price = models.DecimalField(max_digits=9, decimal_places=0)
     variable = models.CharField(max_length=250, blank=True, null=True)
+    color_code = models.CharField(max_length=100, blank=True, null=True)
     quantity = models.PositiveSmallIntegerField()
     discount = models.DecimalField(max_digits=3, decimal_places=0, blank=True, null=True)
     discounted_price = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
