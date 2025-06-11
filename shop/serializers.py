@@ -2,6 +2,8 @@ from rest_framework import serializers
 
 import re
 
+from config import settings
+
 from core.models import CustomUser
 
 from .models import Product,\
@@ -23,6 +25,7 @@ from .models import Product,\
 
 # checked
 class ProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
     price = serializers.IntegerField()
     discounted_price = serializers.IntegerField()
     discount_amount = serializers.IntegerField()
@@ -40,6 +43,12 @@ class ProductSerializer(serializers.ModelSerializer):
                   'rates_average', 
                   'number_of_reviews', 
                   'has_discount', ]
+
+    def get_image(self, obj:Product):
+        base_url = getattr(settings, 'SITE_URL')
+        if obj.image.url:
+            return base_url + obj.image.url
+        return None
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -123,9 +132,17 @@ class ProductAttributeInProductDetailSerializer(serializers.ModelSerializer):
 
 
 class ImageInProductDetailSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = Image
         fields = ["id", "image", ]
+
+    def get_image(self, obj:Image):
+        base_url = getattr(settings, 'SITE_URL')
+        if obj.image.url:
+            return base_url + obj.image.url
+        return None
 
 
 # checked
@@ -142,7 +159,10 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'in_stock', 'main_image', 'images', 'rates_average', 'number_of_reviews', 'default_attribute', 'attributes', ]
 
     def get_main_image(self, obj:Product):
-        return obj.image.url
+        base_url = getattr(settings, 'SITE_URL')
+        if obj.image.url:
+            return base_url + obj.image.url
+        return None
 
     def get_rates_average(self, obj:Product):
         return obj.rates_average
@@ -268,9 +288,10 @@ class CartProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'image', 'price', 'discounted_price', 'discount_amount', ]
     
     def get_image(self, obj:ProductAttribute):
+        base_url = getattr(settings, 'SITE_URL')
         product = obj.product
-        if product.image:
-            return product.image.url
+        if product.image.url:
+            return base_url + product.image.url
         return None
 
     def get_discounted_price(self, obj):
@@ -310,7 +331,7 @@ class CartItemSerializer(serializers.ModelSerializer):
 
 # checked
 class CartSerializer(serializers.ModelSerializer):
-    items = CartItemSerializer(many=True)
+    items = CartItemSerializer(many=True, read_only=True)
     total_price = serializers.SerializerMethodField()
     total_discount = serializers.SerializerMethodField()
     total_items = serializers.SerializerMethodField()
@@ -376,9 +397,10 @@ class OrderItemProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'image', ]
 
     def get_image(self, obj:ProductAttribute):
+        base_url = getattr(settings, 'SITE_URL')
         product = obj.product
-        if product.image:
-            return product.image.url
+        if product.image.url:
+            return base_url + product.image.url
         return None
 
     def to_representation(self, instance):

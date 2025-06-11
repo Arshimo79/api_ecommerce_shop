@@ -66,7 +66,7 @@ class Product(models.Model):
     title = models.CharField(max_length=300)
     description = models.TextField()
     slug = models.CharField(max_length=400, unique=True)
-    image = models.ImageField(upload_to='product_images/main/', blank=True, null=True)
+    image = models.ImageField(upload_to='product_images/', blank=True, null=True)
     category = models.ForeignKey('Category', on_delete=models.PROTECT, related_name='products')
     subcategory = models.ForeignKey('SubCategory', on_delete=models.PROTECT, related_name='products')
     price = models.DecimalField(max_digits=9, decimal_places=0, null=True, blank=True)
