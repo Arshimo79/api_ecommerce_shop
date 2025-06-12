@@ -311,6 +311,7 @@ class CartProductSerializer(serializers.ModelSerializer):
             representation['size'] = instance.variable.title
         else:
             representation['color'] = instance.variable.title
+            representation['color_code'] = instance.variable.color_code
 
         return {key: val for key, val in representation.items() if val is not None}
 
@@ -450,7 +451,7 @@ class OrderSerializer(serializers.ModelSerializer):
     products_total_price = serializers.IntegerField()
     order_total_discount = serializers.IntegerField()
     order_total_price = serializers.IntegerField()
-    items = OrderItemSerializer(many=True)
+    items = OrderItemSerializer(many=True, read_only=True)
     shipping_method = ShippingMethodInOrderSerializer()
     status = serializers.SerializerMethodField()
     class Meta:
