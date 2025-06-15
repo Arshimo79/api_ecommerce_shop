@@ -12,6 +12,8 @@ import uuid
 class Category(models.Model):
     title = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural='1. Categories'
@@ -24,6 +26,8 @@ class SubCategory(models.Model):
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='subcategories')
     title = models.CharField(max_length=255)
     slug = models.SlugField(unique=True)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural='2. SubCategories'
@@ -35,6 +39,8 @@ class SubCategory(models.Model):
 class Discount(models.Model):
     discount = models.DecimalField(max_digits=3, decimal_places=0, validators=[MinValueValidator(0), MaxValueValidator(100)], verbose_name="discount_amount")
     description = models.CharField(max_length=255, blank=True)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural='3. Discounts'
@@ -54,6 +60,8 @@ class Variable(models.Model):
     variable_type = models.CharField(max_length=100, choices=VARIABLE_TYPE)
     title = models.CharField(max_length=100)
     color_code = models.CharField(max_length=100, null=True, blank=True)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name_plural='4. Variables'
@@ -65,7 +73,7 @@ class Variable(models.Model):
 class Product(models.Model):
     title = models.CharField(max_length=300)
     description = models.TextField()
-    slug = models.CharField(max_length=400, unique=True)
+    slug = models.SlugField(unique=True)
     image = models.ImageField(upload_to='product_images/', blank=True, null=True)
     category = models.ForeignKey('Category', on_delete=models.PROTECT, related_name='products')
     subcategory = models.ForeignKey('SubCategory', on_delete=models.PROTECT, related_name='products')
@@ -251,6 +259,8 @@ class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name="cart_items")
     quantity = models.PositiveSmallIntegerField()
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = [['cart', 'product']]
@@ -265,6 +275,8 @@ class Wishlist(models.Model):
 class WishlistItem(models.Model):
     wish_list = models.ForeignKey(Wishlist, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="wish_items")
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = [['wish_list', 'product']]
@@ -411,6 +423,8 @@ class OrderItem(models.Model):
     discount = models.DecimalField(max_digits=3, decimal_places=0, blank=True, null=True)
     discounted_price = models.DecimalField(max_digits=9, decimal_places=0, blank=True, null=True)
     discount_active = models.BooleanField(default=False)
+    datetime_created = models.DateTimeField(auto_now_add=True)
+    datetime_modified = models.DateTimeField(auto_now=True)
 
     def get_item_total_price(self):
         if self.discount_active and self.discount:

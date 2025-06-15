@@ -122,7 +122,7 @@ class ImageInLine(admin.TabularInline):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display  = ['id', 'title', 'num_of_products', ]
+    list_display  = ['id', 'title', 'num_of_products', 'datetime_created', 'datetime_modified', ]
     search_fields = ['title', ]
 
     prepopulated_fields = {
@@ -148,7 +148,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(SubCategory)
 class SubCategoryAdmin(admin.ModelAdmin):
-    list_display        = ['id', 'title', 'category', 'num_of_products', ]
+    list_display        = ['id', 'title', 'category', 'num_of_products', 'datetime_created', 'datetime_modified', ]
     list_select_related = ['category', ]
     autocomplete_fields = ['category', ]
     search_fields       = ['title', ]
@@ -314,23 +314,23 @@ class ProductReviewAdmin(admin.ModelAdmin):
 
 @admin.register(Discount)
 class DiscountAdmin(admin.ModelAdmin):
-    list_display = ['id', 'discount', 'description', ]
+    list_display = ['id', 'discount', 'description', 'datetime_created', 'datetime_modified', ]
     
 
 @admin.register(Variable)
 class VariableAdmin(admin.ModelAdmin):
-    list_display = ["id", "variable_type", "title", "color_code", ]
+    list_display = ["id", "variable_type", "title", "color_code", "datetime_created", "datetime_modified", ]
     list_editable = ["title", "color_code", ]
 
 
 @admin.register(Wishlist)
 class WishlistAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', ]
+    list_display = ['id', 'user', 'datetime_created', 'datetime_modified', ]
 
 
 @admin.register(WishlistItem)
 class WishlistItemAdmin(admin.ModelAdmin):
-    list_display = ["id", "wish_list", "product", ]
+    list_display = ["id", "wish_list", "product", "datetime_created", "datetime_modified", ]
 
 
 class ShippingMethodForm(forms.ModelForm):
@@ -406,7 +406,7 @@ class CartAdmin(admin.ModelAdmin):
 
 @admin.register(CartItem)
 class CartItemAdmin(admin.ModelAdmin):
-    list_display = ['id', 'cart', 'product', "quantity", ]
+    list_display = ['id', 'cart', 'product', 'quantity', 'datetime_created', 'datetime_modified', ]
     list_editable = ['quantity', ]
 
     def get_queryset(self, request):
@@ -470,4 +470,6 @@ class OrderItemAdmin(admin.ModelAdmin):
                     "variable", 
                     "color_code", 
                     "get_item_total_price", 
-                    "discount_active", ]
+                    "discount_active", 
+                    "datetime_created", 
+                    "datetime_modified", ]
