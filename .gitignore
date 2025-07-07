@@ -2,6 +2,6 @@ __pycache__/
 venv/
 .idea/
 staticfiles/
-.env/
 static/
 media/
+.env
