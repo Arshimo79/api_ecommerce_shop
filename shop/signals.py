@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-from .models import ProductAttribute, CartItem, Order, OrderItem, Image, ShippingMethod
+from .models import ProductAttribute, CartItem, Order, OrderItem, Image, ShippingMethod, ProductReview
 
 @receiver([post_save, post_delete], sender=ProductAttribute)
 def update_product_dynamic_fields(sender, instance, **kwargs):
@@ -18,8 +18,6 @@ def update_product_dynamic_fields(sender, instance, **kwargs):
         discounted_price=product.discounted_price,
         discount_amount=product.discount_amount,
         has_discount=product.has_discount,
-        number_of_reviews=product.number_of_reviews,
-        rates_average=product.rates_average,
         total_sold=product.total_sold,
         in_stock=product.in_stock,
         stock_quantity=product.stock_quantity,
@@ -177,4 +175,16 @@ def update_order_when_order_item_save(sender, instance, **kwargs):
         products_total_price=order.products_total_price,
         order_total_discount=order.order_total_discount,
         order_total_price=order.order_total_price
+    )
+
+@receiver([post_save, post_delete], sender=ProductReview)
+def update_product_rates_average_and_number_of_reviews_fields(sender, instance, **kwargs):
+    product = instance.product
+
+    reviews = product.reviews.all()
+    product.update_review_stats(reviews=reviews)
+
+    product.__class__.objects.filter(pk=product.pk).update(
+        number_of_reviews=product.number_of_reviews,
+        rates_average=product.rates_average,
     )

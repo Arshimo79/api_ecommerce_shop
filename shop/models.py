@@ -118,6 +118,16 @@ class Product(models.Model):
             attributes = self.attributes.all()
         self.total_sold = attributes.aggregate(total_sold=Sum('total_sold'))['total_sold'] or 0
 
+    def update_review_stats(self, reviews=None):
+        """Update rates_average & number_of_reviews fields dynamicaly"""
+        review_stats = self.reviews.aggregate(
+            count=Count('id'),
+            avg_rating=Avg('review_rating')
+        )
+
+        self.number_of_reviews = review_stats['count']
+        self.rates_average = review_stats['avg_rating']
+
     def update_dynamic_fields(self, attributes=None):
         """Updates dynamic fields like price, discount, and review statistics."""
         if attributes is None:
@@ -130,11 +140,6 @@ class Product(models.Model):
             discounted_price__isnull=False
         ).order_by('discounted_price').only('price', 'discounted_price', 'discount_amount').first()
 
-        review_stats = self.reviews.aggregate(
-            count=Count('id'),
-            avg_rating=Avg('review_rating')
-        )
-
         if discounted_attr:
             self.price = discounted_attr.price
             self.discounted_price = discounted_attr.discounted_price
@@ -146,9 +151,6 @@ class Product(models.Model):
             self.discounted_price = None
             self.discount_amount = None
             self.has_discount = False
-
-        self.number_of_reviews = review_stats['count']
-        self.rates_average = review_stats['avg_rating']
 
     class Meta:
         verbose_name_plural = '5. Products'
